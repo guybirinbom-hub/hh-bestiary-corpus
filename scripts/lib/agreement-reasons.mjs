@@ -33,6 +33,7 @@
 //   facet-omits-strike      the page prints a strike the facet does not count
 //   facet-omits-action-glyph the page prints an action cost inside the text; the facet drops it
 //   section-trailing-paragraph the two reads end the section at different paragraphs
+//   component-defences-in-disable the facet's Disable keeps a component's defence rows; the record reports them
 //   unexplained             no rule applies
 
 import { clean1, normKey, stripLinks } from './text.mjs';
@@ -181,6 +182,9 @@ function textReason(row) {
   const s = String(row.structured ?? ''), t = String(row.text ?? '');
   const noGlyph = (x) => normKey(x.replace(/[◆◇↺]/g, ' '));
   if (noGlyph(s) === noGlyph(t)) return 'facet-omits-action-glyph';
+  // "…disables the hazard. Belimarius Statue AC 42; …": the facet keeps a component's defence rows the page
+  // prints inside Disable; the record reports them in unparsed.json and keeps its pool in defenses.hp
+  if (row.field === 'disable' && normKey(s).startsWith(normKey(t)) && /^\s*(?:[A-Z][\w'’-]*\s+)+(?:AC|Hardness|HP)\s+\d/.test(s.slice(t.length).replace(/^[\s.]+/, ' '))) return 'component-defences-in-disable';
   const p1 = (x) => normKey(x.split(/\n|(?<=\.)\s+(?=Critical Success|Melee|Ranged)/)[0]);
   if (p1(s) === p1(t) || normKey(t).startsWith(normKey(s)) || normKey(s).startsWith(normKey(t))) return 'section-trailing-paragraph';
   return 'unexplained';

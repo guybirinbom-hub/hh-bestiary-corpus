@@ -8,13 +8,14 @@
 // are read across the whole page; a `---` ends a Routine, which otherwise swallows its own sub-labels
 // ("Turn 2", "Turn 4+").
 
-import { clean, clean1, decodeEntities, num } from './text.mjs';
+import { clean, clean1, decodeEntities, num, stripLinks } from './text.mjs';
 import {
   CLAUSE_RE, flat, paragraphs, parseAbility, parseAcRow, parseResWeak, parseSpeed, parseStrike, preprocess,
   splitList, toEntries,
 } from './grammar.mjs';
 
 const PROF = /^(untrained|trained|expert|master|legendary)$/i;
+const COMPONENT_REASON = 'hazard component defences: no field';
 
 export function parseHazardPage(doc) {
   const unparsed = [];
@@ -40,7 +41,34 @@ export function parseHazardPage(doc) {
   const description = [];
   let disable, routine, reset;
   const hp = [];
+  const compPools = [];
   let lastHardnessComp = '';
+
+  /**
+   * One component's defence row: "**Reflection** AC 24; **Fort** +11, **Ref** +17", "**Belimarius Statue
+   * Hardness** 31; **HP** 120 (BT 60); **Immunities** …". The HP is a pool of that component; every other
+   * value has no field in the hazard shape (defenses holds the first component's) and is reported.
+   */
+  function componentRow(comp, line, section, unk, lead) {
+    const t = stripLinks(decodeEntities(line)).replace(/\s+/g, ' ');
+    const LAB = /\*{0,2}\s*(?:((?:[A-Z][\w'’-]*\s+)*?)\s*)?\b(AC|Fort(?:itude)?|Ref(?:lex)?|Will|Hardness|HP|Immunities|Resistances|Weaknesses)\b\s*\*{0,2}:?\s*/g;
+    const labs = [...t.matchAll(LAB)].filter((m) => /^(?:AC|Fort|Fortitude|Ref|Reflex|Will|Hardness|HP)$/.test(m[2]) ? /^\s*[+\-–]?\s*\d/.test(t.slice(m.index + m[0].length)) : true);
+    for (let k = 0; k < labs.length; k++) {
+      const m = labs[k];
+      const val = t.slice(m.index + m[0].length, k + 1 < labs.length ? labs[k + 1].index : t.length).replace(/^[\s;,]+|[\s;,.]+$/g, '').replace(/\*\*/g, '').trim();
+      const label = m[2].replace(/^Fortitude$/, 'Fort').replace(/^Reflex$/, 'Ref');
+      if (label === 'HP') {
+        const hm = val.match(/^(\d+)\s*(.*)$/);
+        if (hm) {
+          const btm = hm[2].match(/\(?\s*BT\s*(\d+)\s*\)?/i);
+          const note = (btm ? hm[2].replace(btm[0], '') : hm[2]).replace(/^[\s,;]+|[\s,;]+$/g, '').replace(/^\(\s*\)$/, '');
+          compPools.push({ hp: num(hm[1]), head: comp, note, bt: btm ? num(btm[1]) : undefined });
+          continue;
+        }
+      }
+      bad(section, `${comp} ${label}`, `${comp} ${label} ${clean1(val, unk)}`.trim(), COMPONENT_REASON);
+    }
+  }
 
   // Every strike the page prints, wherever it sits (its own entry, or after a <br> inside an action or the
   // Routine): the hazard shape has no strike field, so each is an unparsed row carrying the strike and the
@@ -124,15 +152,22 @@ export function parseHazardPage(doc) {
           break;
         }
         case 'disable': {
-          // "…disables the hazard.<br />**Belimarius Statue AC** 42; … **Hardness** 31; **HP** 120 (BT 60)": a
-          // component's own defences printed inside the Disable text stay there; the shape has no field.
-          for (const line of text.split('\n')) {
-            if (!/\*\*(?:[A-Z][\w'’-]*\s+)+(?:AC|Hardness|HP)\*\*/.test(line)) continue;
-            for (const m of line.matchAll(/\*\*((?:[A-Z][\w'’-]*\s+)*(?:AC|Hardness|HP|Immunities|Resistances|Weaknesses|Fort|Ref|Will))\*\*[^*]*/g)) bad(section, m[1], clean1(m[0], unk), 'component defences inside Disable with no field');
+          // "…disables the hazard.<br />**Belimarius Statue AC** 42; …<br />**Belimarius Statue Hardness** 31;
+          // **HP** 120 (BT 60)": a component's own defences printed inside the Disable text are not Disable
+          // text. Its HP is a pool (named after it once the defence rows are read); the rest has no field.
+          const kept = [];
+          for (const p of paras) {
+            const keep = [];
+            for (const line of p.split('\n')) {
+              const cm = line.trim().match(/^\*\*((?:[A-Z][\w'’-]*\s+)+)(?:AC|Hardness|HP)\*\*/);
+              if (cm) componentRow(cm[1].trim(), line, section, unk, true); else keep.push(line);
+            }
+            if (keep.join('').trim()) kept.push(keep.join('\n'));
           }
-          disable = paras.map((p) => clean(p, unk)).filter(Boolean).join('\n') || undefined;
+          disable = kept.map((p) => clean(p, unk)).filter(Boolean).join('\n') || undefined;
           break;
         }
+        case 'component': componentRow(e.name, `${text}`, section, unk, false); break;
         case 'ac': {
           const r = parseAcRow(`${e.name === 'AC' ? '' : `**${e.name}**`} ${text}`.trim(), unk);
           for (const k of ['ac', 'acNote', 'fort', 'ref', 'will', 'saveNote']) if (r[k] !== undefined) fields[k] = r[k];
@@ -148,7 +183,7 @@ export function parseHazardPage(doc) {
           if (hpm) { m[2] = ''; later.push({ section, kind: 'hp', name: hpm[1], rawLabel: hpm[1], first: hpm[2], lines: [] }); }
           lastHardnessComp = e.name.replace(/\s*Hardness$/i, '').trim();
           if (fields.hardness === undefined) fields.hardness = num(m[1]);
-          else bad(section, e.name, s, 'second hardness with no field');
+          else bad(section, e.name, s, COMPONENT_REASON);
           if (m[2].replace(/[,;.\s]/g, '')) bad(section, e.name, s, 'hardness note with no field');
           break;
         }
@@ -174,7 +209,7 @@ export function parseHazardPage(doc) {
         case 'immunities': case 'resistances': case 'weaknesses': {
           // A second IWR row belongs to a component ("**Web Hardness** 5; **Web HP** 20; **Immunities** …"):
           // the hazard shape has one list, so the component's row is reported, not merged into the hazard's.
-          if (fields[e.kind] !== undefined) { bad(section, e.name, clean1(text, unk), 'component IWR row with no field'); break; }
+          if (fields[e.kind] !== undefined) { bad(section, [lastHardnessComp, e.name].filter(Boolean).join(' '), clean1(text, unk), COMPONENT_REASON); break; }
           fields[e.kind] = e.kind === 'immunities' ? splitList(text.replace(/\.$/, ''), unk) : parseResWeak(text, unk);
           break;
         }
@@ -190,12 +225,8 @@ export function parseHazardPage(doc) {
           if (!r.error) attacks.push(r.attack);
           break;
         }
-        case 'speed': {
-          const r = parseSpeed(text, unk);
-          fields.speed = r.speed;
-          if (r.speedNote) fields.speedNote = r.speedNote;
-          break;
-        }
+        // "**Speed** 20 feet" (a moving hazard), "**Reflection Speed** 50 feet": the hazard shape has no speed.
+        case 'speed': bad(section, e.name, clean1(text, unk), 'hazard speed: no field'); break;
         default: {
           const issues = [];
           const ab = parseAbility(e, unk, issues);
@@ -206,10 +237,17 @@ export function parseHazardPage(doc) {
       }
       for (const x of later) handle(x, section);
   }
-  // One pool per component, named by it; with several components each carries its own BT in its name
-  // ("Joint (BT 32)"), since defenses.bt holds only the first pool's.
+  // A component's HP printed with its other defences (inside Disable, or on a "**Reflection** **HP** 30" row):
+  // the column's unnamed pool with the same HP and BT is that component's; otherwise it is a pool of its own.
+  for (const c of compPools) {
+    const same = hp.find((p) => !p.head && p.hp === c.hp && p.bt === c.bt);
+    if (same) same.head = c.head; else hp.push(c);
+  }
+  // One pool per component, named by it; with several pools each carries its own BT in its name
+  // ("Joint (BT 32)", "BT 85" when the page names no component), since defenses.bt holds only the first's.
   if (hp.length) fields.hp = hp.map((p) => {
-    const head = p.head + (p.head && hp.length > 1 && p.bt !== undefined ? ` (BT ${p.bt})` : '');
+    const bt = hp.length > 1 && p.bt !== undefined ? `BT ${p.bt}` : '';
+    const head = p.head && bt ? `${p.head} (${bt})` : p.head || bt;
     const name = [head, p.note].filter(Boolean).join(', ');
     return name ? { hp: p.hp, name } : { hp: p.hp };
   });
@@ -222,6 +260,8 @@ export function parseHazardPage(doc) {
   function classify(name, cur, lab) {
     const n = name.replace(/\s+/g, ' ').trim();
     const startsAbility = /^\s*<actions\b/i.test(lab.rest ?? '');
+    // "**Speed** 20 feet" inside a Routine is not routine text.
+    if (cur?.kind === 'routine' && /(?:^|\s)Speed$/.test(n)) return 'speed';
     // Inside a Routine, bold sub-labels ("Turn 2") are part of the routine unless they carry a cost.
     if (cur?.kind === 'routine' && !startsAbility && !/^(?:Reset|Routine)$/i.test(n)) {
       cur.lines.push(`${n} ${lab.rest ?? ''}`.trim());
@@ -232,6 +272,12 @@ export function parseHazardPage(doc) {
     if (cur && /^\d+(?:\s*[–-]\s*\d+)?\s*:/.test(n) && !startsAbility) return 'continue';
     // A bold word on the line right under Disable/Stealth/Reset is part of its value ("**Thievery** DC 28").
     if (['disable', 'stealth', 'reset'].includes(cur?.kind) && !lab.afterBlank && !startsAbility) return 'continue';
+    // A component's name heading its own defence row ("**Reflection** AC 24; **Fort** +11", "**Reflection**
+    // **HP** 30; **Immunities** …", "**Belimarius Statue AC** 42; …"), wherever it sits.
+    if (/^[A-Z]/.test(n) && !/^(?:AC|HP|Hardness)$/.test(n) && (/^\s*(?:\*\*)?(?:AC|HP|Hardness)(?:\*\*)?\s*\d/.test(lab.rest ?? '') || /^(?:[A-Z][\w'’-]*\s+)+AC$/.test(n))) {
+      if (/\sAC$/.test(n)) { lab.rest = `AC ${lab.rest}`; lab.name = n.replace(/\s+AC$/, ''); }
+      return 'component';
+    }
     if (cur?.kind === 'strike' && /^Damage$/i.test(n)) return 'continue';
     if (/^(?:Fort|Fortitude|Ref|Reflex|Will)$/i.test(n)) return cur?.kind === 'ac' ? 'continue' : 'ac';
     if (/^Source$/i.test(n)) return 'source';
@@ -246,7 +292,7 @@ export function parseHazardPage(doc) {
     if (/^Weakness(?:es)?$/i.test(n)) return 'weaknesses';
     if (/^Routine$/i.test(n)) return 'routine';
     if (/^Reset$/i.test(n)) return 'reset';
-    if (/^Speed$/i.test(n)) return 'speed';
+    if (/(?:^|\s)Speed$/.test(n)) return 'speed';
     if (/^(?:Melee|Ranged)$/i.test(n)) return 'strike';
     return 'ability';
   }

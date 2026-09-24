@@ -110,6 +110,12 @@ page (`Complexity`, description prose, `Stealth`, `Disable`, AC/saves, Hardness/
 `disable.entries`, `routine`, `reset`, `complex`, `defenses.bt`, `actions` as Ability objects) AND keeps
 `description[0]` as the flattened page text, because the tracker's adapter parses hazard strikes from
 that text only. That adapter limitation is recorded in `report/render.json`, not patched in the data.
+A hazard with several components keeps one HP pool per component in `defenses.hp`, each named by its
+component with its BT ("Joint (BT 32)", "BT 85" when the page names none); the first component's AC,
+saves, hardness and IWR fill `defenses`, and every other component's AC, saves, hardness and IWR
+(including rows the page prints inside Disable or under a component label such as "**Reflection** AC
+24") is an unparsed row with reason "hazard component defences: no field". A hazard `Speed` line has
+no field either and is an unparsed row ("hazard speed: no field"), never routine text.
 
 ## Render check (`scripts/render.mjs`)
 

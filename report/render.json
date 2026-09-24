@@ -3,9 +3,9 @@
   "records": 5454,
   "clean": 1,
   "withRows": 5453,
-  "rows": 11377,
+  "rows": 11383,
   "byVerdict": {
-   "adapter": 4955,
+   "adapter": 4961,
    "order": 5734,
    "parse": 34,
    "render": 654
@@ -49,8 +49,8 @@
      "rows": 4
     },
     {
-     "heading": "Immunities",
-     "rows": 3
+     "heading": "Reflection",
+     "rows": 4
     }
    ],
    "order": [
@@ -134667,6 +134667,42 @@
   {
    "id": "hazard-190",
    "name": "Clone Mirrors",
+   "heading": "Reflection",
+   "expected": "Reflection",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
+   "heading": "Reflection",
+   "expected": "Reflection",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
+   "heading": "Reflection Speed",
+   "expected": "Reflection Speed",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection Speed"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
    "heading": "Melee reflected weapon",
    "expected": "Melee reflected weapon",
    "rendered": null,
@@ -142016,8 +142052,8 @@
    "rendered": null,
    "json": null,
    "verdict": "parse",
-   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"second hardness with no field\"",
-   "unparsed": "second hardness with no field"
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-441",
@@ -142040,8 +142076,8 @@
    "rendered": null,
    "json": null,
    "verdict": "parse",
-   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"component IWR row with no field\"",
-   "unparsed": "component IWR row with no field"
+   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-441",
@@ -147721,6 +147757,42 @@
   {
    "id": "hazard-638",
    "name": "Clone Mirrors",
+   "heading": "Reflection",
+   "expected": "Reflection",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
+   "heading": "Reflection",
+   "expected": "Reflection",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
+   "heading": "Reflection Speed",
+   "expected": "Reflection Speed",
+   "rendered": null,
+   "json": {
+    "inDescription": "Reflection Speed"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseHazard reads this from the description text and did not find it"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
    "heading": "Melee reflected weapon",
    "expected": "Melee reflected weapon",
    "rendered": null,
@@ -148714,8 +148786,8 @@
    "rendered": null,
    "json": null,
    "verdict": "parse",
-   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"component defences inside Disable with no field\"",
-   "unparsed": "component defences inside Disable with no field"
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-775",
@@ -148724,7 +148796,8 @@
    "expected": "HP #2",
    "rendered": null,
    "json": {
-    "hp": 120
+    "hp": 120,
+    "name": "Belimarius Statue (BT 60)"
    },
    "verdict": "adapter",
    "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
@@ -148737,8 +148810,8 @@
    "rendered": null,
    "json": null,
    "verdict": "parse",
-   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"component defences inside Disable with no field\"",
-   "unparsed": "component defences inside Disable with no field"
+   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-775",
@@ -148801,7 +148874,8 @@
      "name": "Runelord Statue (BT 50)"
     },
     {
-     "hp": 120
+     "hp": 120,
+     "name": "Belimarius Statue (BT 60)"
     }
    ],
    "verdict": "order",
