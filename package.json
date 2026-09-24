@@ -6,6 +6,7 @@
   "scripts": {
     "fetch": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/fetch-aon.mjs",
     "records": "node scripts/build-records.mjs",
+    "check": "node scripts/check-records.mjs",
     "build": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/build.mjs",
     "render": "node scripts/render.mjs",
     "vendor:verify": "node scripts/vendor-sync.mjs --verify"
