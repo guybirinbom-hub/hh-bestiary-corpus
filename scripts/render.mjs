@@ -27,6 +27,18 @@ const ONLY = opt('--only', '') ? new Set(opt('--only').split(',')) : null
 const LIMIT = +opt('--limit', 0) || 0
 const HTML_DIR = opt('--html', '')
 
+// The Archives' own index of each creature page's abilities (the creature_ability facet), read from the
+// fetch cache: a heading it lists is a header, never an option line (see pageHeadings and compare).
+const FACET = new Map()
+{
+  const f = join(ROOT, 'cache', 'aon', 'creature.jsonl')
+  if (existsSync(f)) for (const l of readFileSync(f, 'utf8').split('\n')) {
+    if (!l) continue
+    const d = JSON.parse(l)
+    if (Array.isArray(d.creature_ability)) FACET.set(d.id, d.creature_ability)
+  }
+}
+
 // ── 1-2. the vendored component bundled and loaded into jsdom (scripts/lib/render-core.mjs) ───────
 const { SB, host, renderRecord } = await loadStatBlock(ROOT)
 
@@ -232,6 +244,7 @@ function partPool(rec, label) {
 }
 const partNote = (label, part) => `adapter: the page's second ${label} row belongs to a part; the record keeps it on that HP pool ("${part.name}"), and parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])`
 const stats = { optionLines: 0, unboldedHeaders: 0, explainedByUnparsed: 0 }
+const accepted = []
 
 function compare(rec, file, hazard) {
   const id = rec._aon?.id ?? `${file}#${rec.name}`
@@ -239,7 +252,9 @@ function compare(rec, file, hazard) {
   const row = (heading, verdict, expected, rendered, json, note) =>
     rows.push({ id, name: rec.name, heading, expected: expected ?? null, rendered: rendered ?? null, json: cut(json) ?? null, verdict, note: note ?? '' })
 
-  const page = pageHeadings(rec._aon?.markdown ?? '', { hazard, name: rec.name })
+  const facet = hazard ? [] : (FACET.get(rec._aon?.id) ?? [])
+  const facetSet = new Set(facet.map(norm))
+  const page = pageHeadings(rec._aon?.markdown ?? '', { hazard, name: rec.name, abilities: facet })
   const c = hazard ? SB.parseHazard(rec) : SB.parseCreature(rec, file)
   let html
   try { html = renderRecord(c) } catch (e) {
@@ -312,7 +327,7 @@ function compare(rec, file, hazard) {
       if (pools.length > m.occ) row(m.label, 'adapter', `${m.label} #${m.occ + 1}`, null, pools[m.occ],
         'adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])')
       else if (part) row(m.label, 'adapter', `${m.label} #${m.occ + 1}`, null, part, partNote(m.label, part))
-      else row(m.label, 'parse', `${m.label} #${m.occ + 1}`, null, null, `the page prints ${m.label} ${m.occ + 1} times; the record holds one`)
+      else row(m.label, 'parse', `${m.label} #${m.occ + 1}`, null, null, `the page prints ${m.label} ${m.occ + 1} times; the record holds ${m.label === 'HP' ? pools.length : 'one'}`)
       continue
     }
     const raw = rawValue(rec, m, hazard)
@@ -324,10 +339,16 @@ function compare(rec, file, hazard) {
       const prevBody = prev?.kind === 'ability' ? flatText([prevRaw.trigger, prevRaw.entries]) : ''
       const esc = m.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const part = m.kind === 'stat' && partPool(rec, m.label)
-      if (m.kind === 'ability' && new RegExp(`(^|\\n|[.!?:]\\s+)(?:•\\s*)?${esc}(?=[\\s.:;,]|$)`, 'i').test(prevBody)) {
+      // A heading the page marks as a header (an action cost, a trait list or a MonsterAbilities link) or the facet lists is
+      // never an option line, even when the record kept it as a line of the entry before it.
+      const header = m.cost || m.traits || m.linked || facetSet.has(norm(m.label))
+      if (m.kind === 'ability' && !header && new RegExp(`(^|\\n|[.!?:]\\s+)(?:•\\s*)?${esc}(?=[\\s.:;,]|$)`, 'i').test(prevBody)) {
         // the page's bold option label ("**Ally** …" under Angry Rant, "… again. **Air** tailwind, …" under
         // All Made One) opens a line or a sentence of the ability that lists it
         stats.optionLines++
+        accepted.push({ id, heading: m.label, as: 'option line', in: prev.label })
+      } else if (m.kind === 'ability' && header && new RegExp(`(^|[\\s.;:!?•])${esc}(?=[\\s.:;,◆◇↺(]|$)`, 'i').test(prevBody)) {
+        row(m.label, 'merged', m.label, null, prevRaw, `the record folds it into "${prev.label}"; the page marks it as a header (${[m.cost && 'action cost', m.traits && 'trait list', m.linked && 'MonsterAbilities link', facetSet.has(norm(m.label)) && 'creature_ability facet'].filter(Boolean).join(', ')})`)
       } else if (part) {
         row(m.label, 'adapter', m.label, null, part, partNote(m.label, part))
       } else if (m.kind === 'ability' && new RegExp(`(^|[\\s.;])${esc}\\b`).test(prevBody)) {
@@ -353,8 +374,9 @@ function compare(rec, file, hazard) {
       row(x.label, 'render', null, x.label, rec.defenses?.savingThrows?.[x.label.toLowerCase()] ?? null, renderNote(c, x, true))
     } else if (x.label === 'Description' && hazard) {
       row(x.label, 'adapter', null, x.label, cut(raw), 'adapter: parseHazard falls back to the whole description text when it parses no flavor paragraph')
-    } else if (raw != null && raw !== false && x.kind === 'ability' && printsUnboldedHeader(rec._aon?.markdown, cleanAbilityName(x.label), { hazard, name: rec.name })) {
-      stats.unboldedHeaders++                    // the page prints it at the start of a line without bold
+    } else if (raw != null && raw !== false && x.kind === 'ability' && !page.listOptions.some(a => norm(a) === norm(x.label)) && printsUnboldedHeader(rec._aon?.markdown, cleanAbilityName(x.label), { hazard, name: rec.name })) {
+      stats.unboldedHeaders++                    // the page prints it at the start of a line (or a sentence) without bold
+      accepted.push({ id, heading: x.label, as: 'unbolded header' })
     } else if (raw != null && raw !== false) {
       const k = norm(x.label)
       const where = page.asides.some(a => norm(a) === k) ? 'the page prints it in a sidebar (<aside>), not the stat block; the record made it an entry'
@@ -456,10 +478,9 @@ if (existsSync(UNPARSED)) {
     if (r.verdict !== 'parse' && r.verdict !== 'merged') continue
     const h = norm(String(r.expected ?? r.heading).replace(/ #\d+$/, ''))
     const bare = h.replace(/^(melee|ranged) /, '')
-    const u = (byId.get(r.id) ?? []).find(u => !u.used && (() => {
-      const uh = norm(u.heading), ul = norm(u.line)
-      return (uh && (uh === h || uh === bare || uh.endsWith(' ' + h))) || (bare.length > 2 && ul.includes(bare))
-    })())
+    const list = (byId.get(r.id) ?? []).filter(u => !u.used)
+    const u = list.find(u => { const uh = norm(u.heading); return uh && (uh === h || uh === bare || uh.endsWith(' ' + h)) })
+      ?? list.find(u => bare.length > 2 && norm(u.line).includes(bare))
     if (u) u.used = true
     if (u) { r.note = `${r.note}; page oddity, reported in report/unparsed.json: "${u.reason}"`; r.unparsed = u.reason; stats.explainedByUnparsed++ }
   }
@@ -482,12 +503,13 @@ const summary = {
   // page headings matched without a row: a bold option label kept as a line of the ability that lists it,
   // and a record ability the page prints unbolded at the start of a line (the oracle cannot list those)
   matchedWithoutRow: { optionLines: stats.optionLines, unboldedHeaders: stats.unboldedHeaders },
+  // every such case, so each can be checked by hand (id, heading, how it was accepted)
   parseOrMergedExplainedByUnparsed: stats.explainedByUnparsed,
   data: DATA.startsWith(ROOT) ? DATA.slice(ROOT.length + 1) : DATA,
   vendor: readFileSync(join(ROOT, 'vendor', 'PIN.md'), 'utf8').match(/Source: Heroes-Heaven `([0-9a-f]+)`/)?.[1] ?? null,
   scope: 'StatBlock only: name, level, source and rarity line are rendered by CombatantDetail and are not compared; trait pills are compared as a set; BT and ritual DC labels are values, not headings.',
 }
 mkdirSync(dirname(OUT), { recursive: true })
-writeFileSync(OUT, JSON.stringify({ summary, rows: allRows }, null, 1) + '\n')
+writeFileSync(OUT, JSON.stringify({ summary, rows: allRows, accepted }, null, 1) + '\n')
 console.log(`render: ${todo.length} records, ${clean} clean, ${allRows.length} rows in ${((Date.now() - t0) / 1000).toFixed(1)}s -> ${OUT}`)
 console.log(JSON.stringify(summary.byVerdict))

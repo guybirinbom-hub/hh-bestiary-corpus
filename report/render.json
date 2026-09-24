@@ -3,11 +3,11 @@
   "records": 5454,
   "clean": 1,
   "withRows": 5453,
-  "rows": 11383,
+  "rows": 11418,
   "byVerdict": {
-   "adapter": 4961,
-   "order": 5734,
-   "parse": 34,
+   "adapter": 4965,
+   "order": 5733,
+   "parse": 66,
    "render": 654
   },
   "topHeadings": {
@@ -25,16 +25,12 @@
      "rows": 54
     },
     {
+     "heading": "HP",
+     "rows": 32
+    },
+    {
      "heading": "Melee Single ◆",
      "rows": 15
-    },
-    {
-     "heading": "Speed",
-     "rows": 12
-    },
-    {
-     "heading": "HP",
-     "rows": 11
     },
     {
      "heading": "Melee jaws",
@@ -49,8 +45,12 @@
      "rows": 4
     },
     {
-     "heading": "Reflection",
-     "rows": 4
+     "heading": "Immunities",
+     "rows": 3
+    },
+    {
+     "heading": "Speed",
+     "rows": 3
     }
    ],
    "order": [
@@ -64,7 +64,7 @@
     },
     {
      "heading": "Hardness",
-     "rows": 246
+     "rows": 247
     },
     {
      "heading": "Resistances",
@@ -75,19 +75,19 @@
      "rows": 6
     },
     {
-     "heading": "HP",
-     "rows": 4
-    },
-    {
      "heading": "Divine Spells Prepared",
      "rows": 3
     },
     {
-     "heading": "Immunities",
+     "heading": "HP",
      "rows": 3
     },
     {
      "heading": "Divine Innate Spells",
+     "rows": 2
+    },
+    {
+     "heading": "Immunities",
      "rows": 2
     },
     {
@@ -97,7 +97,23 @@
    ],
    "parse": [
     {
+     "heading": "Hardness",
+     "rows": 17
+    },
+    {
+     "heading": "Speed",
+     "rows": 11
+    },
+    {
      "heading": "Immunities",
+     "rows": 5
+    },
+    {
+     "heading": "AC",
+     "rows": 3
+    },
+    {
+     "heading": "Fort",
      "rows": 3
     },
     {
@@ -105,7 +121,11 @@
      "rows": 3
     },
     {
-     "heading": "Hardness",
+     "heading": "Ref",
+     "rows": 3
+    },
+    {
+     "heading": "HP",
      "rows": 2
     },
     {
@@ -115,26 +135,6 @@
     {
      "heading": "Melee claw",
      "rows": 2
-    },
-    {
-     "heading": "Ranged blackfrost ice shard",
-     "rows": 2
-    },
-    {
-     "heading": "Draconic Frenzy",
-     "rows": 1
-    },
-    {
-     "heading": "Faceless Horde",
-     "rows": 1
-    },
-    {
-     "heading": "Impossible Stature",
-     "rows": 1
-    },
-    {
-     "heading": "Melee +33",
-     "rows": 1
     }
    ],
    "render": [
@@ -161,10 +161,10 @@
    ]
   },
   "matchedWithoutRow": {
-   "optionLines": 66,
-   "unboldedHeaders": 52
+   "optionLines": 58,
+   "unboldedHeaders": 39
   },
-  "parseOrMergedExplainedByUnparsed": 26,
+  "parseOrMergedExplainedByUnparsed": 66,
   "data": "data",
   "vendor": "41c2b05733f19e69b4a366a178a8c9d76718d4c7",
   "scope": "StatBlock only: name, level, source and rarity line are rendered by CombatantDetail and are not compared; trait pills are compared as a set; BT and ritual DC labels are values, not headings."
@@ -34885,6 +34885,7 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
+    "Untethered to Fate (mid)",
     "Challenge Fate (mid)",
     "Cheat Fate (mid)"
    ],
@@ -34911,6 +34912,7 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
+    "Unerring Location (mid)",
     "Redirect (mid)",
     "Shoo! (mid)"
    ],
@@ -34966,6 +34968,7 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Risen Commander (mid)",
+    "Reawaken! (mid)",
     "Siphon Life (mid)"
    ],
    "verdict": "adapter",
@@ -35577,6 +35580,7 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Cobblegems (mid)",
+    "Shimmering Armor (mid)",
     "Shielding Stone (mid)"
    ],
    "verdict": "adapter",
@@ -35916,7 +35920,8 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Countered by Metal (mid)",
-    "Frightful Presence (mid)"
+    "Frightful Presence (mid)",
+    "Fed by Water (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -35942,7 +35947,8 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Countered by Metal (mid)",
-    "Frightful Presence (mid)"
+    "Frightful Presence (mid)",
+    "Fed by Water (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -35967,7 +35973,9 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
-    "Frightful Presence (mid)"
+    "Countered by Metal (mid)",
+    "Frightful Presence (mid)",
+    "Fed by Water (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -35992,7 +36000,9 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
-    "Frightful Presence (mid)"
+    "Countered by Metal (mid)",
+    "Frightful Presence (mid)",
+    "Fed by Water (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -36590,31 +36600,6 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
-  },
-  {
-   "id": "creature-4168",
-   "name": "Ancient Sea Dragon",
-   "heading": "Tidal Wave",
-   "expected": null,
-   "rendered": "Tidal Wave",
-   "json": {
-    "name": "Tidal Wave",
-    "activity": {
-     "number": 3,
-     "unit": "action"
-    },
-    "traits": [
-     "arcane",
-     "manipulate",
-     "water"
-    ],
-    "entries": [
-     "Frequency once per 10 minutes\nEffect The dragon slams their body down, sending a towering wave outward. This wave deals 10d12 bludgeoning damage in a 90-foot emanation. Each creature in the area must …"
-    ],
-    "_slot": "bot"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
   },
   {
    "id": "creature-4168",
@@ -37859,6 +37844,7 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Frightful Presence (mid)",
+    "Sunlight Powerlessness (mid)",
     "Vitality Transfer (mid)"
    ],
    "verdict": "adapter",
@@ -37885,6 +37871,7 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Frightful Presence (mid)",
+    "Sunlight Powerlessness (mid)",
     "Vitality Transfer (mid)"
    ],
    "verdict": "adapter",
@@ -41140,23 +41127,6 @@
    },
    "verdict": "order",
    "note": "renderer: Speed is drawn as a cube in the Defense strip, ahead of HP and IWR; the page prints it at the top of the bottom section"
-  },
-  {
-   "id": "creature-4747",
-   "name": "Ort Mob",
-   "heading": "Faceless Horde",
-   "expected": null,
-   "rendered": "Faceless Horde",
-   "json": {
-    "name": "Faceless Horde",
-    "traits": [],
-    "entries": [
-     "An ort mob is less organized than most troops. It can move into other creatures' spaces, and other creatures can move into its spaces. Its spaces are difficult terrain to other creatures."
-    ],
-    "_slot": "bot"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
   },
   {
    "id": "creature-4747",
@@ -47758,7 +47728,8 @@
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
     "Evasion (mid)",
-    "Guarded Movement (mid)"
+    "Guarded Movement (mid)",
+    "Outside of Time (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -74494,7 +74465,8 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
-    "Guard's Parry (mid)"
+    "Guard's Parry (mid)",
+    "Reactive Strike (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -93080,6 +93052,19 @@
   {
    "id": "creature-1416",
    "name": "Orochi",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 60,
+    "name": "head, multiple heads"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "creature-1416",
+   "name": "Orochi",
    "heading": "Resistances",
    "expected": "Resistances #2",
    "rendered": null,
@@ -93092,7 +93077,7 @@
    "id": "creature-1416",
    "name": "Orochi",
    "heading": "Immunities",
-   "expected": "after Resistances",
+   "expected": "after HP",
    "rendered": "after HP",
    "json": [
     "area damage"
@@ -111621,6 +111606,17 @@
   {
    "id": "creature-3734",
    "name": "Phytohydra",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints HP 2 times; the record holds 1; page oddity, reported in report/unparsed.json: \"HP pool without a number\"",
+   "unparsed": "HP pool without a number"
+  },
+  {
+   "id": "creature-3734",
+   "name": "Phytohydra",
    "heading": "Immunities",
    "expected": "Immunities #2",
    "rendered": null,
@@ -112570,6 +112566,19 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
+  },
+  {
+   "id": "creature-3765",
+   "name": "Trighoul",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 20,
+    "name": "tentacle, (tentacle regrowth)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "creature-3765",
@@ -116343,44 +116352,6 @@
   {
    "id": "creature-4264",
    "name": "Eron Of Jandelay",
-   "heading": "Reactive Beak",
-   "expected": null,
-   "rendered": "Reactive Beak",
-   "json": {
-    "name": "Reactive Beak",
-    "traits": [],
-    "entries": [
-     "The eron of Jandelay gains 2 reactions each round. It can still use only one reaction per trigger."
-    ],
-    "_slot": "mid"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
-  },
-  {
-   "id": "creature-4264",
-   "name": "Eron Of Jandelay",
-   "heading": "Reactive Strike",
-   "expected": null,
-   "rendered": "Reactive Strike",
-   "json": {
-    "name": "Reactive Strike",
-    "activity": {
-     "number": 1,
-     "unit": "reaction"
-    },
-    "traits": [],
-    "entries": [
-     "beak only"
-    ],
-    "_slot": "mid"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
-  },
-  {
-   "id": "creature-4264",
-   "name": "Eron Of Jandelay",
    "heading": "Languages",
    "expected": "Languages",
    "rendered": "Languages",
@@ -116416,7 +116387,8 @@
    "expected": "top/mid abilities in their sections",
    "rendered": "after Attacks/Spellcasting/Rituals",
    "json": [
-    "Frightful Presence (mid)"
+    "Frightful Presence (mid)",
+    "Reactive Strike (mid)"
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
@@ -116527,27 +116499,6 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
-  },
-  {
-   "id": "creature-4269",
-   "name": "Kandirvek",
-   "heading": "Draconic Frenzy",
-   "expected": null,
-   "rendered": "Draconic Frenzy",
-   "json": {
-    "name": "Draconic Frenzy",
-    "activity": {
-     "number": 2,
-     "unit": "action"
-    },
-    "traits": [],
-    "entries": [
-     "As omen dragon."
-    ],
-    "_slot": "bot"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
   },
   {
    "id": "creature-4269",
@@ -117016,32 +116967,6 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
-  },
-  {
-   "id": "creature-4912",
-   "name": "Animate Nightmare",
-   "heading": "Panicking Touch",
-   "expected": null,
-   "rendered": "Panicking Touch",
-   "json": {
-    "name": "Panicking Touch",
-    "activity": {
-     "number": 1,
-     "unit": "action"
-    },
-    "traits": [
-     "emotion",
-     "fear",
-     "mental",
-     "occult"
-    ],
-    "entries": [
-     "Requirements The animate nightmare's previous action was a nightmare tendril Strike against a creature\nEffect The animate nightmare's touch lingers and infuses the mind of the creature it just attempt…"
-    ],
-    "_slot": "bot"
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
   },
   {
    "id": "creature-4912",
@@ -129324,6 +129249,30 @@
   {
    "id": "hazard-13",
    "name": "Hammer of Forbiddance",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-13",
+   "name": "Hammer of Forbiddance",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 64,
+    "name": "Joint (BT 32)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-13",
+   "name": "Hammer of Forbiddance",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -129507,6 +129456,30 @@
   {
    "id": "hazard-21",
    "name": "Drowning Pit",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-21",
+   "name": "Drowning Pit",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 32,
+    "name": "Spout (BT 16)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-21",
+   "name": "Drowning Pit",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -129567,14 +129540,37 @@
   {
    "id": "hazard-23",
    "name": "Spinning Blade Pillar",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-23",
+   "name": "Spinning Blade Pillar",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 20,
+    "name": "Panel (BT 10)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-23",
+   "name": "Spinning Blade Pillar",
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-23",
@@ -129740,6 +129736,30 @@
    },
    "verdict": "render",
    "note": "renderer: StatBlock pushes the AC cube only for non-hazards (StatBlock.tsx L1181); parseHazard fills defenses.ac"
+  },
+  {
+   "id": "hazard-26",
+   "name": "Lava Flume Tubes",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-26",
+   "name": "Lava Flume Tubes",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 72,
+    "name": "Floor (BT 36)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "hazard-26",
@@ -130555,11 +130575,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-56",
@@ -131335,11 +131354,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-74",
@@ -131672,16 +131690,6 @@
    },
    "verdict": "order",
    "note": "renderer: fixed section order differs from the page"
-  },
-  {
-   "id": "hazard-84",
-   "name": "Caustic Vapor",
-   "heading": "Caustic Nightmare Vapor",
-   "expected": null,
-   "rendered": "Caustic Nightmare Vapor",
-   "json": null,
-   "verdict": "adapter",
-   "note": "adapter: splitMergedAbility / the hazard prose parser produced an entry the record does not have"
   },
   {
    "id": "hazard-84",
@@ -134667,38 +134675,70 @@
   {
    "id": "hazard-190",
    "name": "Clone Mirrors",
-   "heading": "Reflection",
-   "expected": "Reflection",
+   "heading": "AC",
+   "expected": "AC #2",
    "rendered": null,
-   "json": {
-    "inDescription": "Reflection"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints AC 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-190",
    "name": "Clone Mirrors",
-   "heading": "Reflection",
-   "expected": "Reflection",
+   "heading": "Fort",
+   "expected": "Fort #2",
    "rendered": null,
-   "json": {
-    "inDescription": "Reflection"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Fort 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-190",
    "name": "Clone Mirrors",
-   "heading": "Reflection Speed",
-   "expected": "Reflection Speed",
+   "heading": "Ref",
+   "expected": "Ref #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Ref 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
+   "heading": "HP",
+   "expected": "HP #2",
    "rendered": null,
    "json": {
-    "inDescription": "Reflection Speed"
+    "hp": 30,
+    "name": "Reflection"
    },
    "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
+   "heading": "Immunities",
+   "expected": "Immunities #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-190",
+   "name": "Clone Mirrors",
+   "heading": "Speed",
+   "expected": "Speed",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-190",
@@ -135154,6 +135194,30 @@
    },
    "verdict": "render",
    "note": "renderer: StatBlock pushes the AC cube only for non-hazards (StatBlock.tsx L1181); parseHazard fills defenses.ac"
+  },
+  {
+   "id": "hazard-206",
+   "name": "Keystone Trap",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-206",
+   "name": "Keystone Trap",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 50,
+    "name": "Vault (BT 25)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "hazard-206",
@@ -136806,6 +136870,30 @@
   {
    "id": "hazard-256",
    "name": "Toxic Furnace",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-256",
+   "name": "Toxic Furnace",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 56,
+    "name": "Furnace (BT 28)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-256",
+   "name": "Toxic Furnace",
    "heading": "Ranged boiling toxin",
    "expected": "Ranged boiling toxin",
    "rendered": null,
@@ -136908,6 +136996,30 @@
    },
    "verdict": "render",
    "note": "renderer: StatBlock pushes the AC cube only for non-hazards (StatBlock.tsx L1181); parseHazard fills defenses.ac"
+  },
+  {
+   "id": "hazard-258",
+   "name": "The Last Crucible",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-258",
+   "name": "The Last Crucible",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 20,
+    "name": "Spout (BT 10)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "hazard-258",
@@ -139173,6 +139285,30 @@
   {
    "id": "hazard-351",
    "name": "Reservoir Trap",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-351",
+   "name": "Reservoir Trap",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 30,
+    "name": "Pipe (BT 15)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-351",
+   "name": "Reservoir Trap",
    "heading": "Ranged water jet",
    "expected": "Ranged water jet",
    "rendered": null,
@@ -139191,27 +139327,6 @@
    "json": {},
    "verdict": "render",
    "note": "renderer: hazard saves render all three once any is non-zero, so a save the page does not print shows as +0"
-  },
-  {
-   "id": "hazard-351",
-   "name": "Reservoir Trap",
-   "heading": "Violent Deluge ↺",
-   "expected": null,
-   "rendered": "Violent Deluge ↺",
-   "json": {
-    "name": "Violent Deluge",
-    "activity": {
-     "number": 1,
-     "unit": "reaction"
-    },
-    "traits": [],
-    "trigger": "The water tank is broken or destroyed",
-    "entries": [
-     "Effect A torrent of water bursts from the shattered tank, dealing 3d8 bludgeoning damage to each creature within 15 feet (basic DC 22 Refex save). The trap is then disabled."
-    ]
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
   },
   {
    "id": "hazard-351",
@@ -139965,11 +140080,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-371",
@@ -140166,6 +140280,30 @@
   {
    "id": "hazard-377",
    "name": "Life Magnet",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-377",
+   "name": "Life Magnet",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 40,
+    "name": "Bar (BT 20)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-377",
+   "name": "Life Magnet",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -140295,6 +140433,30 @@
    },
    "verdict": "render",
    "note": "renderer: hazard saves render only when fort, ref or will is non-zero, all three together"
+  },
+  {
+   "id": "hazard-380",
+   "name": "Iron Maiden Trap",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-380",
+   "name": "Iron Maiden Trap",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 46,
+    "name": "Iron Maiden (BT 23)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "hazard-380",
@@ -141115,11 +141277,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-404",
@@ -141853,11 +142014,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-432",
@@ -142910,6 +143070,30 @@
   {
    "id": "hazard-472",
    "name": "Hammer Of Forbiddance",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-472",
+   "name": "Hammer Of Forbiddance",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 64,
+    "name": "Joint (BT 32)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-472",
+   "name": "Hammer Of Forbiddance",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -143512,6 +143696,30 @@
   {
    "id": "hazard-489",
    "name": "Drowning Pit",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-489",
+   "name": "Drowning Pit",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 32,
+    "name": "Spout (BT 16)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-489",
+   "name": "Drowning Pit",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -143681,14 +143889,37 @@
   {
    "id": "hazard-494",
    "name": "Spinning Blade Pillar",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-494",
+   "name": "Spinning Blade Pillar",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 20,
+    "name": "Panel (BT 10)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-494",
+   "name": "Spinning Blade Pillar",
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-494",
@@ -144153,14 +144384,37 @@
   {
    "id": "hazard-506",
    "name": "Consuming Cabinet",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-506",
+   "name": "Consuming Cabinet",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 40,
+    "name": "Door (BT 20)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-506",
+   "name": "Consuming Cabinet",
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-506",
@@ -146139,26 +146393,6 @@
   {
    "id": "hazard-575",
    "name": "Shuffling Scythe Blades",
-   "heading": "Scythe Shuffle ◆",
-   "expected": null,
-   "rendered": "Scythe Shuffle ◆",
-   "json": {
-    "name": "Scythe Shuffle",
-    "activity": {
-     "number": 1,
-     "unit": "action"
-    },
-    "traits": [],
-    "entries": [
-     "The blades travel erratically throughout the hallway’s branches, out of sight under the floors or behind the walls. For each blade, roll 1d4 to determine the region in which it next makes scythe Strik…"
-    ]
-   },
-   "verdict": "parse",
-   "note": "the record carries a heading the page does not print as a bold entry label"
-  },
-  {
-   "id": "hazard-575",
-   "name": "Shuffling Scythe Blades",
    "heading": "Scythe Shuffle Single ◆",
    "expected": null,
    "rendered": "Scythe Shuffle Single ◆",
@@ -146562,6 +146796,30 @@
    },
    "verdict": "render",
    "note": "renderer: StatBlock pushes the AC cube only for non-hazards (StatBlock.tsx L1181); parseHazard fills defenses.ac"
+  },
+  {
+   "id": "hazard-592",
+   "name": "Reservoir Trap",
+   "heading": "Hardness",
+   "expected": "Hardness #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Hardness 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-592",
+   "name": "Reservoir Trap",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 30,
+    "name": "Pipe (BT 15)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
   },
   {
    "id": "hazard-592",
@@ -147757,38 +148015,70 @@
   {
    "id": "hazard-638",
    "name": "Clone Mirrors",
-   "heading": "Reflection",
-   "expected": "Reflection",
+   "heading": "AC",
+   "expected": "AC #2",
    "rendered": null,
-   "json": {
-    "inDescription": "Reflection"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints AC 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-638",
    "name": "Clone Mirrors",
-   "heading": "Reflection",
-   "expected": "Reflection",
+   "heading": "Fort",
+   "expected": "Fort #2",
    "rendered": null,
-   "json": {
-    "inDescription": "Reflection"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Fort 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-638",
    "name": "Clone Mirrors",
-   "heading": "Reflection Speed",
-   "expected": "Reflection Speed",
+   "heading": "Ref",
+   "expected": "Ref #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Ref 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
+   "heading": "HP",
+   "expected": "HP #2",
    "rendered": null,
    "json": {
-    "inDescription": "Reflection Speed"
+    "hp": 30,
+    "name": "Reflection"
    },
    "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
+   "heading": "Immunities",
+   "expected": "Immunities #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Immunities 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-638",
+   "name": "Clone Mirrors",
+   "heading": "Speed",
+   "expected": "Speed",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-638",
@@ -148264,11 +148554,10 @@
    "heading": "Speed",
    "expected": "Speed",
    "rendered": null,
-   "json": {
-    "inDescription": "Speed"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
+   "json": null,
+   "verdict": "parse",
+   "note": "the record does not carry it; page oddity, reported in report/unparsed.json: \"hazard speed: no field\"",
+   "unparsed": "hazard speed: no field"
   },
   {
    "id": "hazard-658",
@@ -148594,6 +148883,19 @@
   {
    "id": "hazard-772",
    "name": "Zutha's Legacy",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 120,
+    "name": "Scythe (BT 60)"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-772",
+   "name": "Zutha's Legacy",
    "heading": "Vomit Maggot",
    "expected": "Vomit Maggot",
    "rendered": null,
@@ -148757,18 +149059,6 @@
   {
    "id": "hazard-775",
    "name": "Covetous Corridor",
-   "heading": "Belimarius Statue AC",
-   "expected": "Belimarius Statue AC",
-   "rendered": null,
-   "json": {
-    "inDescription": "Belimarius Statue AC"
-   },
-   "verdict": "adapter",
-   "note": "adapter: parseHazard reads this from the description text and did not find it"
-  },
-  {
-   "id": "hazard-775",
-   "name": "Covetous Corridor",
    "heading": "AC",
    "expected": "AC",
    "rendered": null,
@@ -148777,6 +149067,50 @@
    },
    "verdict": "render",
    "note": "renderer: StatBlock pushes the AC cube only for non-hazards (StatBlock.tsx L1181); parseHazard fills defenses.ac"
+  },
+  {
+   "id": "hazard-775",
+   "name": "Covetous Corridor",
+   "heading": "AC",
+   "expected": "AC #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints AC 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-775",
+   "name": "Covetous Corridor",
+   "heading": "Fort",
+   "expected": "Fort #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Fort 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-775",
+   "name": "Covetous Corridor",
+   "heading": "Ref",
+   "expected": "Ref #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Ref 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
+  },
+  {
+   "id": "hazard-775",
+   "name": "Covetous Corridor",
+   "heading": "Will",
+   "expected": "Will #2",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints Will 2 times; the record holds one; page oddity, reported in report/unparsed.json: \"hazard component defences: no field\"",
+   "unparsed": "hazard component defences: no field"
   },
   {
    "id": "hazard-775",
@@ -148801,6 +149135,17 @@
    },
    "verdict": "adapter",
    "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-775",
+   "name": "Covetous Corridor",
+   "heading": "HP",
+   "expected": "HP #3",
+   "rendered": null,
+   "json": null,
+   "verdict": "parse",
+   "note": "the page prints HP 3 times; the record holds 2; page oddity, reported in report/unparsed.json: \"hazard component HP printed twice; the record keeps one pool\"",
+   "unparsed": "hazard component HP printed twice; the record keeps one pool"
   },
   {
    "id": "hazard-775",
@@ -148865,33 +149210,12 @@
   {
    "id": "hazard-775",
    "name": "Covetous Corridor",
-   "heading": "HP",
-   "expected": "after Hardness",
-   "rendered": "after Will",
-   "json": [
-    {
-     "hp": 100,
-     "name": "Runelord Statue (BT 50)"
-    },
-    {
-     "hp": 120,
-     "name": "Belimarius Statue (BT 60)"
-    }
-   ],
-   "verdict": "order",
-   "note": "renderer: fixed section order differs from the page"
-  },
-  {
-   "id": "hazard-775",
-   "name": "Covetous Corridor",
-   "heading": "Immunities",
-   "expected": "after HP",
-   "rendered": "after HP",
-   "json": [
-    "critical hits",
-    "object immunities",
-    "precision damage"
-   ],
+   "heading": "Hardness",
+   "expected": "after Will",
+   "rendered": "after Disable",
+   "json": {
+    "std": 29
+   },
    "verdict": "order",
    "note": "renderer: fixed section order differs from the page"
   },
@@ -149594,6 +149918,19 @@
   {
    "id": "hazard-798",
    "name": "Malfunctioning Perfumery",
+   "heading": "HP",
+   "expected": "HP #2",
+   "rendered": null,
+   "json": {
+    "hp": 170,
+    "name": "BT 85"
+   },
+   "verdict": "adapter",
+   "note": "adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])"
+  },
+  {
+   "id": "hazard-798",
+   "name": "Malfunctioning Perfumery",
    "heading": "Will",
    "expected": null,
    "rendered": "Will",
@@ -149756,6 +150093,551 @@
    },
    "verdict": "order",
    "note": "renderer: fixed section order differs from the page"
+  }
+ ],
+ "accepted": [
+  {
+   "id": "creature-3908",
+   "heading": "Wind-Up",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-103",
+   "heading": "Failure Vulnerability",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4104",
+   "heading": "Camouflage",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4107",
+   "heading": "Status Sight",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4108",
+   "heading": "Arise!",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4109",
+   "heading": "Runic Scales",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4111",
+   "heading": "Ironsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4112",
+   "heading": "Ironsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4113",
+   "heading": "Ironsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4119",
+   "heading": "Aquatic Echolocation",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4120",
+   "heading": "Aquatic Echolocation",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4121",
+   "heading": "Aquatic Echolocation",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4122",
+   "heading": "Aquatic Echolocation",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4134",
+   "heading": "Lover of the Arts",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4134",
+   "heading": "Whimsysense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4141",
+   "heading": "Divine Sanctification",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4178",
+   "heading": "Motionsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4179",
+   "heading": "Motionsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4180",
+   "heading": "Motionsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4181",
+   "heading": "Motionsense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4234",
+   "heading": "Ley Line Sense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4747",
+   "heading": "Faceless Horde",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3306",
+   "heading": "Whisker Sense",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3323",
+   "heading": "Cold Adaptation",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4429",
+   "heading": "Bonded Vessel",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Abaddon",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Astral Plane",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Axis",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Boneyard",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Creation's Forge",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Dead Vault",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Dreamlands",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Elysium",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Ethereal Plane",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Heaven",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Hell",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Maelstrom",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Netherworld",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Nirvana",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Outer Rifts",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Air",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Earth",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Fire",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Metal",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Water",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Plane of Wood",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-4541",
+   "heading": "Universe",
+   "as": "option line",
+   "in": "Planar Incarnation"
+  },
+  {
+   "id": "creature-2903",
+   "heading": "Vulnerable to Sunlight",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3002",
+   "heading": "Air",
+   "as": "option line",
+   "in": "All Made One"
+  },
+  {
+   "id": "creature-3482",
+   "heading": "Doctor's Hand",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3644",
+   "heading": "Ally",
+   "as": "option line",
+   "in": "Angry Rant"
+  },
+  {
+   "id": "creature-3644",
+   "heading": "Enemy",
+   "as": "option line",
+   "in": "Angry Rant"
+  },
+  {
+   "id": "creature-1558",
+   "heading": "Scoff at the Divine",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-1598",
+   "heading": "Attack of Opportunity",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-2132",
+   "heading": "Sacrilegious Aura",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-1825",
+   "heading": "Axe Vulnerability",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-1826",
+   "heading": "Light Sickness",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-1983",
+   "heading": "Constant Explosions",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-2362",
+   "heading": "Always Ready",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3692",
+   "heading": "Axe Vulnerability",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-3789",
+   "heading": "Failure Vulnerability",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4264",
+   "heading": "Reactive Beak",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Disaster",
+   "as": "option line",
+   "in": "Apocalyptic Embodiment"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Disorder",
+   "as": "option line",
+   "in": "Apocalyptic Embodiment"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Famine",
+   "as": "option line",
+   "in": "Apocalyptic Embodiment"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Plague",
+   "as": "option line",
+   "in": "Apocalyptic Embodiment"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Disaster",
+   "as": "option line",
+   "in": "Panicking Touch"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Disorder",
+   "as": "option line",
+   "in": "Panicking Touch"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Famine",
+   "as": "option line",
+   "in": "Panicking Touch"
+  },
+  {
+   "id": "creature-4912",
+   "heading": "Plague",
+   "as": "option line",
+   "in": "Panicking Touch"
+  },
+  {
+   "id": "creature-4919",
+   "heading": "Moonlight's Kiss",
+   "as": "unbolded header"
+  },
+  {
+   "id": "creature-4894",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Pour Elixir"
+  },
+  {
+   "id": "creature-4894",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Pour Elixir"
+  },
+  {
+   "id": "creature-4895",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Sheriff's Blessing"
+  },
+  {
+   "id": "creature-4895",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Sheriff's Blessing"
+  },
+  {
+   "id": "creature-4896",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4896",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4897",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4897",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4898",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4898",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4899",
+   "heading": "Rank 2",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-4899",
+   "heading": "Rank 3",
+   "as": "option line",
+   "in": "Spellcasting"
+  },
+  {
+   "id": "creature-2641",
+   "heading": "Angry",
+   "as": "option line",
+   "in": "Shift Mood"
+  },
+  {
+   "id": "creature-2641",
+   "heading": "Gregarious",
+   "as": "option line",
+   "in": "Shift Mood"
+  },
+  {
+   "id": "creature-2641",
+   "heading": "Serene",
+   "as": "option line",
+   "in": "Shift Mood"
+  },
+  {
+   "id": "creature-2641",
+   "heading": "Sly",
+   "as": "option line",
+   "in": "Shift Mood"
+  },
+  {
+   "id": "creature-2688",
+   "heading": "Air",
+   "as": "option line",
+   "in": "All Made One"
+  },
+  {
+   "id": "creature-4927",
+   "heading": "Black Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4927",
+   "heading": "Gold Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4927",
+   "heading": "Green Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4927",
+   "heading": "White Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4935",
+   "heading": "Black Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4935",
+   "heading": "Gold Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4935",
+   "heading": "Green Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "creature-4935",
+   "heading": "White Aeon Star",
+   "as": "option line",
+   "in": "Aeon Blast"
+  },
+  {
+   "id": "hazard-556",
+   "heading": "Special",
+   "as": "unbolded header"
   }
  ]
 }

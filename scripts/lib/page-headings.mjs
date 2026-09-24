@@ -62,6 +62,30 @@ const RANK = /^(cantrips?|constant|\d+(st|nd|rd|th))\b/i
 const STAT_TOP = { perception: 'Perception', languages: 'Languages', skills: 'Skills', items: 'Items' }
 const ABILITY_MODS = new Set(['str', 'dex', 'con', 'int', 'wis', 'cha'])
 const DEF_INLINE = /\*\*(?:\[)?([A-Za-z][A-Za-z' ]*?)(?:\]\([^)]*\))?\*\*/g
+const COST_TOKEN_SRC = '\\[(?:reaction|free-action|one-action|two-actions|three-actions)\\]'
+// after a header label: an action cost (a trait list may come first: "(concentrate) <actions…/>")
+const COST_AFTER = new RegExp(`^\\s*(?:\\*\\*\\s*)?(?:\\([^()]*\\)\\s*)?(?:<actions\\s+string="[^"]+"|${COST_TOKEN_SRC})`, 'i')
+const TRAITS_AFTER = /^\s*(?:\*\*\s*)?(?:<actions\b[^>]*>\s*)?\((?:\[|[a-z])/
+// "…rolls initiative. Violent Deluge <actions…/>": an unbolded header with a cost run on after a full stop
+const RUNON_COST = new RegExp(`([.!?])\\s+(?=(?:[A-Z][\\w'\u2019-]*\\s+(?:(?:of|the|a|an|and|or|to|in|on|from|with|for)\\s+)?){1,5}(?:\\*\\*\\s*)?(?:<actions\\b|${COST_TOKEN_SRC}))`, 'g')
+// a Trigger clause, bold or with the page's broken bold ("**Guardian Spirit <actions…/> **Trigger** The…",
+// "([occult Trigger The skaveling …](…))")
+export const TRIGGER = /(?:^|[^A-Za-z])Trigger\**:?\s+(?:\*\*\s*)?[A-Za-z0-9_\[]/
+const HAZ_DEF = 'AC|Fort|Fortitude|Ref|Reflex|Will|HP|Hardness|Immunities|Resistances|Weaknesses'
+
+/**
+ * Every defence label a hazard line prints, in order: bold ("**Joint Hardness** 16", "**Fort** +11") or
+ * unbolded after a bold component name ("**Reflection** AC 24", "**Spout** HP 32"). Values, not names.
+ */
+function hazardDefences(line) {
+  const out = []
+  const re = new RegExp(`\\*\\*\\s*(?:\\[)?((?:[A-Z][\\w'\u2019-]*\\s+)*?)(${HAZ_DEF})(?:\\]\\([^)]*\\))?\\s*\\*\\*(?=\\s*[:(+\\-\u2013\\d\\[a-z])|\\*\\*\\s*[A-Z][\\w'\u2019 -]*?\\*\\*\\s+(${HAZ_DEF})\\s+[+\\-\u2013]?\\d`, 'g')
+  for (const m of line.matchAll(re)) {
+    const d = defenseLabel((m[2] ?? m[3]).toLowerCase())
+    if (d) out.push(d)
+  }
+  return out
+}
 
 /** Plain text of a markdown label: links unwrapped, emphasis and tags dropped. */
 export function plainLabel(s) {
@@ -140,7 +164,11 @@ function strikeName(lines, i, rest) {
   return (m ? m[1] : text.split(/\s+\(|,/)[0]).trim()
 }
 
-export function pageHeadings(markdown, { hazard = false, name = '' } = {}) {
+export function pageHeadings(markdown, { hazard = false, name = '', abilities = [] } = {}) {
+  // The document's creature_ability facet: a name it lists, printed unbolded at the start of a line, is a
+  // header (the facet is the Archives' own index of the page, not the record parser's reading of it).
+  const facet = [...new Set(abilities.map(a => String(a).replace(/\s+/g, ' ').trim()).filter(a => a.length > 3 && /^[A-Z]/.test(a)))]
+    .sort((a, b) => b.length - a.length)
   const full = (markdown || '').replace(/\r\n?/g, '\n')
   // Bold labels the page prints outside the stat block's entries: sidebars and list options inside an
   // entry. They are not headings; they are returned so a record that promoted one can be told apart.
@@ -150,7 +178,28 @@ export function pageHeadings(markdown, { hazard = false, name = '' } = {}) {
   const md = full.replace(/<aside>[\s\S]*?<\/aside>/g, '')
   const { pre, body } = statBlockText(md, hazard, name)
   const headings = []
-  const push = (label, kind, slot) => headings.push({ label, kind, slot })
+  // `cost`: the page prints an action cost on the header; `traits`: a trait list; `linked`: the header links
+  // the Archives' MonsterAbilities page ("[Troop Defenses](/MonsterAbilities…)"); `trigger`: the entry's own
+  // text (before any list) prints a Trigger clause; `focus`: a spell block label or its line prints "N Focus
+  // Points". The render check compares these with the record (verdict `value`).
+  let last = null
+  const push = (label, kind, slot, rest = '', whole = rest) => {
+    last = { label, kind, slot }
+    if (kind === 'ability') {
+      if (COST_AFTER.test(rest)) last.cost = true
+      if (TRAITS_AFTER.test(rest)) last.traits = true
+    }
+    headings.push(last)
+    if (kind === 'ability' || kind === 'spells') absorb(whole)
+    else last = null
+  }
+  const absorb = t => {
+    if (!last) return
+    last.text = (last.text ?? '') + '\n' + t
+    const own = last.text.split(/<li\b|<ul\b|\n\s*•/i)[0]
+    if (last.kind === 'ability' && TRIGGER.test(own)) last.trigger = true
+    if (last.kind === 'spells' && /\d+\s+Focus\s+Points?/i.test(`${last.raw ?? last.label} ${own.split('\n').find(x => x.trim()) ?? ''}`)) last.focus = true
+  }
 
   if (!hazard && /\*\*\[?Recall Knowledge/.test(pre)) push('Recall Knowledge', 'stat', 'pre')
 
@@ -159,7 +208,7 @@ export function pageHeadings(markdown, { hazard = false, name = '' } = {}) {
   const lines = [], starts = []
   let prevBlank = true
   for (const raw of body.split('\n')) {
-    const parts = (hazard ? raw : raw.replace(/([.!?])\s*(?=\*\*\[?[A-Z])/g, '$1\u0000')).split(/<br\s*\/?>|<\/title>|<\/[uo]l>|\u0000/i)
+    const parts = (hazard ? raw : raw.replace(/([.!?])\s*(?=\*\*\[?[A-Z])/g, '$1\u0000')).replace(RUNON_COST, '$1\u0000').split(/<br\s*\/?>|<\/title>|<\/[uo]l>|\u0000/i)
     parts.forEach((p, k) => { lines.push(p); starts.push(k > 0 || prevBlank) })
     prevBlank = !raw.trim() || /^<\/?(row|column)\b/i.test(raw.trim())
   }
@@ -175,74 +224,111 @@ export function pageHeadings(markdown, { hazard = false, name = '' } = {}) {
   let sawComplexity = false, sawDescription = false, afterComplexityColumn = false, absorbNext = false
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
+    const before = headings.length
+    step(i, line)
+    if (headings.length === before) absorb(line)
+  }
+  return { traits, headings, asides, listOptions }
+
+  function step(i, line) {
     if (/^<table/i.test(line)) inTable = true
-    if (inTable) { if (/<\/table>/i.test(line)) inTable = false; continue }
-    if (line === '---') { if (!hazard) sec = Math.min(sec + 1, 2); continue }
+    if (inTable) { if (/<\/table>/i.test(line)) inTable = false; return }
+    if (line === '---') { if (!hazard) sec = Math.min(sec + 1, 2); return }
     const slot = hazard ? 'hazard' : sections[sec]
 
     if (hazard && sawComplexity && !sawDescription) {
-      if (/^<\/column>/.test(line)) { afterComplexityColumn = true; continue }
+      if (/^<\/column>/.test(line)) { afterComplexityColumn = true; return }
       if (afterComplexityColumn && line && !line.startsWith('<') && !leadingLabel(line)) {
-        push('Description', 'stat', slot); sawDescription = true; continue
+        push('Description', 'stat', slot); sawDescription = true; return
       }
     }
 
     // a title inside the stat block (the Mask of Norgorber's aspects) heads an entry
     const tt = line.match(/^<title\b[^>]*>(.*)$/i)
-    if (tt) { if (plainLabel(tt[1])) push(plainLabel(tt[1]), 'ability', slot); continue }
+    if (tt) { if (plainLabel(tt[1])) push(plainLabel(tt[1]), 'ability', slot); return }
 
-    if (!hazard && !leadingLabel(line)) {
+    if (hazard) {
+      // A component's defences: "**Joint Hardness** 16", "50 (BT 25); **Pipe Hardness** 7, **Pipe HP** 30",
+      // "**Reflection** AC 24; **Fort** +11", "**Belimarius Statue AC** 42; …" (inside Disable), "**Spout** HP
+      // 32": every defence label on the line is a heading, wherever the line starts.
+      const defs = hazardDefences(line)
+      const lead0 = leadingLabel(line)
+      if (defs.length && (!lead0 || defenseLabel(lead0.label.toLowerCase()) || /^\s*(?:\*\*)?\s*(?:AC|HP|Hardness)\b/.test(lead0.rest))) {
+        for (const d of defs) push(d, 'stat', 'hazard')
+        return
+      }
+    }
+    if (!leadingLabel(line) && (!hazard || !/^(?:Melee|Ranged)\b/.test(line))) {
       // An unbolded ability header: Title Case words directly followed by a trait list or an action cost.
-      const u = line.match(UNBOLDED) || (starts[i] && sec > 0 && line.match(UNBOLDED_TRAITS))
+      const u = line.match(UNBOLDED) || (!hazard && starts[i] && sec > 0 && line.match(UNBOLDED_TRAITS))
       if (u && !/^(The|A|An|This|It|Its|If|When|On|In|Melee|Ranged)$/.test(u[1].split(' ')[0]) && !/^(Immunities|Resistances|Weaknesses|Speed|HP|AC)$/.test(u[1])) {
-        push(headerName(u[1]), 'ability', sections[sec]); continue
+        push(headerName(u[1]), 'ability', slot, line.slice(u[1].length)); return
       }
-      const lk = starts[i] && sec > 0 && line.match(LINK_HEADER)
+      const lk = !hazard && starts[i] && sec > 0 && line.match(LINK_HEADER)
       if (lk && (/MonsterAbilities\.aspx/i.test(lk[2]) || /^\s*<actions\b/.test(line.slice(lk[0].length)))) {
-        push(headerName(plainLabel(lk[1])), 'ability', sections[sec]); continue
+        push(headerName(plainLabel(lk[1])), 'ability', sections[sec], line.slice(lk[0].length))
+        if (/MonsterAbilities\.aspx/i.test(lk[2])) last.linked = true
+        return
       }
+      // A header the facet names, printed without bold at the start of a line ("Whisker Sense A leopard seal…").
+      // (not a list item: "<ul><li>**Burial Site Bound** …" is an option the facet also indexes)
+      if (!hazard && sec > 0 && facet.length && !valueOfStatRow(lines, i) && !/^(?:<\/?(?:ul|ol|li)\b[^>]*>\s*)+/i.test(line) && !/^\[[^\]]*\]\(\/?(?:Spells|Rituals|Equipment|Weapons|Armor)\.aspx/i.test(line)) {
+        // (what follows is the header's body: a cost, a trait list or a new sentence; "Death Gasp lasts as
+        // long as…" is prose about the ability, not its header)
+        const t = plainLabel(line.replace(/<actions\b[^>]*>/gi, ' ◆ ').replace(/<[^>]+>/g, ' '))
+        const f = facet.find(n => t.toLowerCase().startsWith(n.toLowerCase()) && /^(?:$|\s*[(◆\[:]|\s+[A-Z0-9])/.test(t.slice(n.length)) && !/^\s*[+\-\u2013]\d/.test(t.slice(n.length)))
+        if (f && /^[A-Z]/.test(t) && !CLAUSES.has(f.toLowerCase())) { push(t.slice(0, f.length), 'ability', sections[sec], line.replace(/^[^<(\[]*?(?=<actions|\(|\[|$)/, '')); return }
+      }
+      // An unbolded second HP pool on its own line ("(body) <br /> HP 20 (tentacle)").
+      if (!hazard && sec === 1 && /^\s*HP\s*(?:\d|\()/.test(plainLabel(line))) { push('HP', 'stat', slot); return }
+    }
+    if (!hazard && !leadingLabel(line)) {
       // An IWR row printed without its bold ("Resistances fire 25", "cold iron 15, Resistances fire 15").
       if (sec === 1) {
         for (const m of line.matchAll(IWR_UNBOLDED)) push(m[1], 'stat', slot)
         // "…[unconscious](…) **Weaknesses** positive 10": a bold IWR label glued on after a list
         for (const m of line.matchAll(/\S\s*\*\*(Immunities|Resistances|Weaknesses)\*\*/g)) push(m[1], 'stat', slot)
-        if (/^\s*(Immunities|Resistances|Weaknesses)\s/.test(line)) continue
+        if (/^\s*(Immunities|Resistances|Weaknesses)\s/.test(line)) return
       }
     }
     const lead = leadingLabel(line)
-    if (!lead || !lead.label || line.startsWith('|') || line.startsWith('-')) continue
+    if (!lead || !lead.label || line.startsWith('|') || line.startsWith('-')) return
     const label = lead.label
     const low = label.toLowerCase()
-    if (low === 'source' || CLAUSES.has(low) || /^stage \d/.test(low) || RANK.test(label)) continue
+    if (low === 'source' || CLAUSES.has(low) || /^stage \d/.test(low) || RANK.test(label)) return
     // "**1.**", "**7 or 11**", "**2, 3, or 12**", "**1—Beauty**", "**20 feet, climb 20 feet**": a numbered
     // or dice option, or a value; "**1,000 Cuts**" is a name
-    if (/^\d+(?:$|[.:)\u2013\u2014-]|,?\s+(?:or|and|\d)|,\s|\s*feet\b)/.test(label)) continue
-    if (/^<sup>/i.test(lead.raw ?? '')) continue            // "**<sup>S</sup> Signature spell …**": a legend
+    if (/^\d+(?:$|[.:)\u2013\u2014-]|,?\s+(?:or|and|\d)|,\s|\s*feet\b)/.test(label)) return
+    if (/^<sup>/i.test(lead.raw ?? '')) return            // "**<sup>S</sup> Signature spell …**": a legend
+    // "**• Recharge** <actions…/> …" under Mythic Power: a list item the page bullets is an option, not an entry
+    if (/^\s*•/.test(lead.raw ?? '')) { listOptions.push(label); return }
     if (/^[a-z]/.test(label)) {             // "**action**", "**[paralyzed](…), [poison](…)**": words of a sentence
       if (!hazard && sec === 1) for (const m of lead.rest.trim().matchAll(IWR_UNBOLDED)) push(m[1], 'stat', slot)
-      continue
+      return
     }
-    if (DEGREE_RUNON.test(label)) continue   // "**Success Kundal** inflicts…": a degree of success run on
+    if (DEGREE_RUNON.test(label)) return   // "**Success Kundal** inflicts…": a degree of success run on
 
     // A stat label with nothing after it ("**Languages**" then the next entry) prints an empty heading.
     // (An ability label with no body, "**[Troop Defenses](…)**", is still an entry.)
-    if (absorbNext) { absorbNext = false; if (!/^(?:complexity|stealth|disable|routine|reset|ac|hp|hardness|immunities|resistances|weaknesses|fort|ref|will)$/.test(low)) continue }
-    if (EMPTYABLE.has(low) && !lead.rest.trim() && emptyEntry(lines, i) && !(hazard && /^(?:disable|routine|reset)$/.test(low) && sectionOpensWithLabel(lines, i))) continue
+    if (absorbNext) { absorbNext = false; if (!/^(?:complexity|stealth|disable|routine|reset|ac|hp|hardness|immunities|resistances|weaknesses|fort|ref|will)$/.test(low)) return }
+    if (EMPTYABLE.has(low) && !lead.rest.trim() && emptyEntry(lines, i) && !(hazard && /^(?:disable|routine|reset)$/.test(low) && sectionOpensWithLabel(lines, i))) return
 
     if (hazard) {
-      if (low === 'complexity') { push('Complexity', 'stat', slot); sawComplexity = true; continue }
-      if (low === 'stealth') { sawDescription = true; push('Stealth', 'stat', slot); continue }
+      if (low === 'complexity') { push('Complexity', 'stat', slot); sawComplexity = true; return }
+      // "**Speed** 20 feet", "**Reflection Speed** 50 feet": a moving hazard or component
+      if (low === 'speed' || / speed$/.test(low)) { push('Speed', 'stat', slot); return }
+      if (low === 'stealth') { sawDescription = true; push('Stealth', 'stat', slot); return }
       if (low === 'disable' || low === 'routine' || low === 'reset') {
         push(label[0].toUpperCase() + low.slice(1), 'stat', slot)
         // "**Reset**⏎**Recovery** <actions…/> …", "**Disable**⏎**Thievery** DC 28": the section's own text
         // opens with a bold label, which is part of it
         if (!lead.rest.trim() && sectionOpensWithLabel(lines, i, true)) absorbNext = true
-        continue
+        return
       }
     } else {
-      if (STAT_TOP[low]) { push(STAT_TOP[low], 'stat', slot); continue }
-      if (ABILITY_MODS.has(low)) { if (low === 'str') push('Ability Modifiers', 'stat', slot); continue }
-      if (low === 'speed') { push('Speed', 'stat', slot); continue }
+      if (STAT_TOP[low]) { push(STAT_TOP[low], 'stat', slot); return }
+      if (ABILITY_MODS.has(low)) { if (low === 'str') push('Ability Modifiers', 'stat', slot); return }
+      if (low === 'speed') { push('Speed', 'stat', slot); return }
     }
 
     const defense = defenseLabel(low)
@@ -254,23 +340,37 @@ export function pageHeadings(markdown, { hazard = false, name = '' } = {}) {
         if (d) push(d, 'stat', slot)
       }
       if (!hazard) for (const m of lead.rest.replace(/\*\*[^*]*\*\*/g, ' ').matchAll(IWR_UNBOLDED)) push(m[1], 'stat', slot)
-      continue
+      return
     }
     if (low === 'melee' || low === 'ranged') {
       push(`${label[0].toUpperCase()}${low.slice(1)} ${strikeName(lines, i, lead.rest)}`, 'strike', slot)
-      continue
+      return
     }
     // "**Rituals** DC 48", "**Rituals (8th)** DC 37": the block; "**Green Rituals** A green man…": an ability
-    if (/\brituals?(\s*\(\d+\w*\))?$/i.test(label) && /^\s*(?:$|DC\b|\d|\(|,|;)/.test(plainLabel(lead.rest) || '')) { push('Rituals', 'stat', slot); continue }
+    if (/\brituals?(\s*\(\d+\w*\))?$/i.test(label) && /^\s*(?:$|DC\b|\d|\(|,|;)/.test(plainLabel(lead.rest) || '')) { push('Rituals', 'stat', slot); return }
     // "**Cleric Domain Spells 1 Focus Point**", "…Spells, 1 Focus Point", "…Spells (2 Focus Points)": the pool size is a value
     const spellLabel = label.replace(/,?\s*\(?\d+\s+focus points?\)?$/i, '').trim()
     if (!/\(/.test(spellLabel) && (/\b(spells|cantrips)$/i.test(spellLabel)
         || /\b(innate|prepared|spontaneous|focus|domain|school|bloodline|order|devotion)\s+spell$/i.test(spellLabel))) {
-      push(spellLabel, 'spells', slot); continue
+      push(spellLabel, 'spells', slot, lead.rest); last.raw = label; absorb(''); return
     }
-    push(headerName(label), 'ability', slot)
+    // a cost the bold swallowed ("**Guardian Spirit <actions…/> **Trigger**", "**Cloak in Embers [reaction**")
+    const inLabel = line.slice(0, line.length - lead.rest.length)
+    const linked = /\]\([^)]*MonsterAbilities\.aspx/i.test(inLabel)
+    push(headerName(label), 'ability', slot, (/<actions\s+string="[^"]+"/.test(inLabel) || /(?:^|\s)\[(?:reaction|free-action|one-action|two-actions|three-actions)\]?$/i.test(label) ? '<actions string="token" /> ' : '') + lead.rest, inLabel.replace(/^[^<]*/, '') + lead.rest)
+    if (linked) last.linked = true
   }
-  return { traits, headings, asides, listOptions }
+}
+
+/** The line is the value of a stat label printed alone on the line before ("**Weaknesses**⏎Magaambya scar"). */
+function valueOfStatRow(lines, i) {
+  for (let j = i - 1; j >= 0; j--) {
+    const t = lines[j].trim()
+    if (!t || /^<\/?(row|column)\b/i.test(t)) continue
+    const l = leadingLabel(t)
+    return !!l && !l.rest.trim() && /^(?:perception|languages|skills|items|immunities|resistances|weaknesses|speed|hp|ac|hardness)$/i.test(l.label)
+  }
+  return false
 }
 
 function emptyEntry(lines, i) {
@@ -298,7 +398,7 @@ function sectionOpensWithLabel(lines, i, plain = false) {
 }
 
 function defenseLabel(low) {
-  if (low === 'ac') return 'AC'
+  if (low === 'ac' || / ac$/.test(low)) return 'AC'
   if (low === 'fort' || low === 'fortitude') return 'Fort'
   if (low === 'ref' || low === 'reflex') return 'Ref'
   if (low === 'will') return 'Will'
@@ -320,9 +420,14 @@ export function printsUnboldedHeader(markdown, label, { hazard = false, name = '
   const { body } = statBlockText(md, hazard, name)
   const want = label.toLowerCase()
   if (!/^[A-Z]/.test(label)) return false
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // or run on after a full stop, followed by a cost or a new sentence ("…frightened. Reactive Beak The eron…")
+  const runOn = new RegExp(`[.!?]\\s+${esc}\\s+(?:[A-Z]|\\[|◆|◇|↺)`)
   for (const raw of body.split(/\n|<br\s*\/?>/i)) {
-    const t = plainLabel(raw.replace(/<[^>]+>/g, ' ')).toLowerCase()
+    const p = plainLabel(raw.replace(/<actions\b[^>]*>/gi, ' ◆ ').replace(/<[^>]+>/g, ' '))
+    const t = p.toLowerCase()
     if (t.startsWith(want) && /^(?:$|[\s(.:;,!])/.test(t.slice(want.length))) return true
+    if (runOn.test(p)) return true
   }
   return false
 }

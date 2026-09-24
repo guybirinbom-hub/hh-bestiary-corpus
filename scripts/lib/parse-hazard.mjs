@@ -62,7 +62,7 @@ export function parseHazardPage(doc) {
         if (hm) {
           const btm = hm[2].match(/\(?\s*BT\s*(\d+)\s*\)?/i);
           const note = (btm ? hm[2].replace(btm[0], '') : hm[2]).replace(/^[\s,;]+|[\s,;]+$/g, '').replace(/^\(\s*\)$/, '');
-          compPools.push({ hp: num(hm[1]), head: comp, note, bt: btm ? num(btm[1]) : undefined });
+          compPools.push({ hp: num(hm[1]), head: comp, note, bt: btm ? num(btm[1]) : undefined, section });
           continue;
         }
       }
@@ -108,7 +108,9 @@ export function parseHazardPage(doc) {
       const later = [];
       // A defence row that runs into the next: "**Web Hardness** 5; **Web HP** 20; **Immunities** …".
       if (['hardness', 'hp', 'immunities', 'resistances', 'weaknesses'].includes(e.kind)) {
-        const cuts = [...text.matchAll(/\s*[;,]?\s*\*\*((?:[A-Z][\w'’-]*\s+)*?(?:Hardness|HP|Immunities|Resistances|Weaknesses))\*\*/g)].filter((m) => m.index > 0);
+        // (also "**Iron Maiden** Hardness 12; **Iron Maiden** HP 46": the bold names only the component)
+        const cuts = [...text.matchAll(/\s*[;,]?\s*\*\*((?:[A-Z][\w'’-]*\s+)*?(?:Hardness|HP|Immunities|Resistances|Weaknesses))\*\*|\s*[;,]?\s*\*\*((?:[A-Z][\w'’-]*\s*)+?)\s*\*\*\s+(Hardness|HP)(?=\s+\d)/g)].filter((m) => m.index > 0)
+          .map((m) => { if (m[1] === undefined) m[1] = `${m[2].trim()} ${m[3]}`; return m; });
         if (cuts.length) {
           const whole = text;
           text = whole.slice(0, cuts[0].index);
@@ -241,7 +243,8 @@ export function parseHazardPage(doc) {
   // the column's unnamed pool with the same HP and BT is that component's; otherwise it is a pool of its own.
   for (const c of compPools) {
     const same = hp.find((p) => !p.head && p.hp === c.hp && p.bt === c.bt);
-    if (same) same.head = c.head; else hp.push(c);
+    if (same) { same.head = c.head; bad(c.section, `${c.head} HP`, `${c.head} HP ${c.hp}${c.bt !== undefined ? ` (BT ${c.bt})` : ''}`, 'hazard component HP printed twice; the record keeps one pool'); }
+    else { const { section: _s, ...pool } = c; hp.push(pool); }
   }
   // One pool per component, named by it; with several pools each carries its own BT in its name
   // ("Joint (BT 32)", "BT 85" when the page names no component), since defenses.bt holds only the first's.

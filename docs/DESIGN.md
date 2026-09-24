@@ -125,7 +125,18 @@ recorded in `vendor/PIN` (`41c2b05733f19e69b4a366a178a8c9d76718d4c7`; StatBlock 
 `97c0cf5`). They are compiled with esbuild and rendered by react-dom/server into jsdom with the settings
 store reset to defaults, `hideHP={false}`, `hideTraits={false}`, no `edit`, and a `ResizeObserver` stub.
 
-Expected headings come from the page markdown (the entry labels of the grammar, in page order). Rendered
+Expected headings come from the page markdown (the entry labels of the grammar, in page order), read by
+`scripts/lib/page-headings.mjs`, which never calls the record parser. Besides bold entry labels it lists
+an unbolded header that the document's `creature_ability` facet names at the start of a line (not in a
+list item), an unbolded Title Case header with a cost tag run on after a full stop, a second HP pool
+printed unbolded on its own line ("(body)<br />HP 20 (tentacle)"), and on hazards every defence label a
+line prints (a component's "**Joint Hardness** 16", "**Reflection** AC 24; **Fort** +11", the
+Belimarius statue's rows inside Disable) and a `Speed` line. Each ability heading carries what the page
+marks it with: an action cost, a trait list, a MonsterAbilities link. A heading the record lacks but
+keeps as a line of the entry before it is accepted without a row only when it carries none of those
+marks and the facet does not list it (an option line, "**Ally** …" under Angry Rant); otherwise it is a
+`merged` row. A bullet ("**• Recharge**") or a list item is an option, never a heading. Every case
+accepted without a row is listed in `report/render.json` under `accepted`. Rendered
 headings come from the DOM (`.stat-label` texts, `.stat-bar` titles, `.def-box-label` texts, attack and
 ability names). Every difference is a row `{id, name, heading, expected, rendered, json, verdict}` where
 `verdict` is `parse` (the JSON lacks it), `render` (the JSON has it, the component did not show it),

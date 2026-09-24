@@ -87,7 +87,9 @@ export function parseCreaturePage(doc) {
   }
   // Every HP row of the block is read together: a second `**HP**` row is a part pool (a hydra's head).
   if (hpTexts.length) {
-    const pools = parseHp(hpTexts.join(' HP '), (tag, ctx) => bad('mid', 'HP', ctx, `unknown tag <${tag}>`));
+    const unkHp = (tag, ctx) => bad('mid', 'HP', ctx, `unknown tag <${tag}>`);
+    unkHp.pool = (seg) => bad('mid', 'HP', `HP ${seg}`, 'HP pool without a number');
+    const pools = parseHp(hpTexts.join(' HP '), unkHp);
     if (pools.length) fields.hp = pools; else bad('mid', 'HP', hpTexts.join(' | '), 'HP without a number');
   }
 
@@ -422,7 +424,7 @@ function parsePerception(text, fields, report, unk) {
  */
 function parseHp(text, unk) {
   const s = clean1(text, unk);
-  const segs = s.split(/(?:^|[\s;,])HP\b\s*:?/).map((x) => x.trim()).filter((x) => x !== '');
+  const segs = s.split(/(?:^|(?<!temporary)[\s;,])HP\b\s*:?/).map((x) => x.trim()).filter((x) => x !== '');
   const pools = [];
   for (let i = 0; i < segs.length; i++) {
     let seg = segs[i];
@@ -433,7 +435,8 @@ function parseHp(text, unk) {
     if (m) { part = m[1]; hp = num(m[2]); rest = m[3]; }
     else {
       m = seg.match(/^(\d+)\s*(.*)$/s);
-      if (!m) continue;
+      // "… Weaknesses fire 10<br /> HP (head)": a pool the page names but gives no number
+      if (!m) { if (i > 0) unk.pool?.(seg); continue; }
       hp = num(m[1]); rest = m[2];
       const multi = segs.length > 1;
       const pm = rest.match(/^\(\(\s*([a-z][a-z ]{1,19}?)\s*\)\s*(.*)$/s) || (i > 0 ? rest.match(/^\(\s*([a-z][a-z ]{1,19}?)\s*\)(.*)$/s) : null)
