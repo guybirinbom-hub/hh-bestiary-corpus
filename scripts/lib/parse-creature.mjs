@@ -422,8 +422,11 @@ function parseSpellBlock(e, unk, report) {
     : /cantrips/.test(low) ? 'Cantrips' : 'Innate';
   const all = [e.first, ...e.lines].join('\n');
   let ranks = [...all.matchAll(RANK_RE)];
-  // Ranks written without bold after the DC: "DC 24 7th [interplanar teleport](…)".
-  if (!ranks.length) ranks = [...all.matchAll(RANK_RE_PLAIN)];
+  // Ranks written without bold after the DC: "DC 24 7th [interplanar teleport](…)", alone or ahead of
+  // bold ranks ("DC 37 2nd invisibility (at will, self only)" then "- **Cantrips (9th)**").
+  const firstBold = ranks.length ? ranks[0].index : all.length;
+  const plain = [...all.slice(0, firstBold).matchAll(RANK_RE_PLAIN)];
+  if (plain.length) ranks = [...plain, ...ranks];
   const headerText = ranks.length ? all.slice(0, ranks[0].index) : all;
   const block = { name, tradition, type };
   const hflat = stripLinks(headerText).replace(/\s+/g, ' ');

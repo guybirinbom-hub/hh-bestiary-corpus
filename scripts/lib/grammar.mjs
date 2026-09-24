@@ -46,7 +46,7 @@ export function preprocess(md, bad, section = '') {
     let n = 0;
     return '\n' + inner.replace(/<li\b[^>]*>/gi, () => `\n${++n}. `).replace(/<\/li\s*>/gi, '\n') + '\n';
   });
-  s = s.replace(/<li\b[^>]*>/gi, '\n• ').replace(/<\/li\s*>/gi, '\n').replace(/<\/?ul\b[^>]*>/gi, '\n');
+  s = s.replace(/<li\b[^>]*>/gi, '\n• ').replace(/<\/li\s*>/gi, '\n').replace(/<\/?[uo]l\b[^>]*>/gi, '\n');
   s = s.replace(/<br\s*\/?>|<\/br>/gi, '\n');
   const lines = s.split('\n').map((l) => l.trim());
   // A line that starts with a comma was hard-wrapped mid-list: stitch it back.
