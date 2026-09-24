@@ -12,11 +12,10 @@
 //           render  the adapter passed it and StatBlock did not show it (or showed one nobody gave it)
 //           merged  two page headings became one
 //           order   present on both sides but out of page order
-import { build } from 'esbuild'
-import { JSDOM } from 'jsdom'
-import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
+import { loadStatBlock, loadRecords, GLYPH_BACK, text } from './lib/render-core.mjs'
 import { pageHeadings, printsUnboldedHeader } from './lib/page-headings.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -28,69 +27,10 @@ const ONLY = opt('--only', '') ? new Set(opt('--only').split(',')) : null
 const LIMIT = +opt('--limit', 0) || 0
 const HTML_DIR = opt('--html', '')
 
-// ── 1. bundle the vendored component ─────────────────────────────────────────────────────────────
-const VENDOR_SRC = join(ROOT, 'vendor', 'src')
-const STUBS = join(ROOT, 'vendor', 'stubs')
-const BUNDLE = join(ROOT, 'cache', 'render', 'statblock.mjs')
-const stubPlugin = {
-  name: 'vendor-stubs',
-  setup(b) {
-    // Any import that resolves to a module with a file under vendor/stubs/ gets the stub instead.
-    b.onResolve({ filter: /^\./ }, args => {
-      const target = resolve(args.resolveDir, args.path)
-      if (!target.startsWith(VENDOR_SRC)) return
-      const rel = target.slice(VENDOR_SRC.length + 1)
-      for (const ext of ['.tsx', '.ts']) {
-        const stub = join(STUBS, rel + ext)
-        if (existsSync(stub)) return { path: stub }
-      }
-    })
-  },
-}
-await build({
-  stdin: {
-    contents: `
-      export { StatBlock } from './components/StatBlock'
-      export { parseCreature, parseHazard } from './utils/parseCreature'
-      export { useSettingsStore, STATBLOCK_DEFAULT } from './store/settingsStore'
-    `,
-    resolveDir: VENDOR_SRC, loader: 'ts', sourcefile: 'render-entry.ts',
-  },
-  bundle: true, format: 'esm', platform: 'node', packages: 'external', jsx: 'automatic',
-  outfile: BUNDLE, logLevel: 'warning', plugins: [stubPlugin],
-  define: { 'process.env.NODE_ENV': '"production"' },
-})
-
-// ── 2. a browser-ish global environment, then the bundle ─────────────────────────────────────────
-const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { url: 'http://localhost/' })
-const g = globalThis
-for (const k of ['window', 'document', 'localStorage', 'sessionStorage', 'HTMLElement', 'Node', 'getComputedStyle']) {
-  Object.defineProperty(g, k, { value: k === 'window' ? dom.window : dom.window[k], configurable: true, writable: true })
-}
-Object.defineProperty(g, 'navigator', { value: dom.window.navigator, configurable: true, writable: true })
-g.ResizeObserver = dom.window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }
-g.matchMedia = dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })
-
-const React = (await import('react')).default
-const { renderToStaticMarkup } = await import('react-dom/server')
-const SB = await import(pathToFileURL(BUNDLE).href + `?t=${Date.now()}`)
-
-function renderRecord(creature) {
-  SB.useSettingsStore.setState({ statBlock: SB.STATBLOCK_DEFAULT, spellLayout: 'grid', spellIndicator: 'diamond' })
-  const combatant = {
-    id: 'render-check', name: creature.name, creature, isPC: false, isAlly: false, initiative: null,
-    currentHP: creature.defenses.hp, maxHP: creature.defenses.hp, tempHP: 0, conditions: [],
-    isElite: false, isWeak: false, notes: '', isDefeated: false,
-  }
-  return renderToStaticMarkup(React.createElement(SB.StatBlock, { combatant, hideHP: false, hideTraits: false }))
-}
+// ── 1-2. the vendored component bundled and loaded into jsdom (scripts/lib/render-core.mjs) ───────
+const { SB, host, renderRecord } = await loadStatBlock(ROOT)
 
 // ── 3. rendered headings from the DOM ─────────────────────────────────────────────────────────────
-const GLYPH_BACK = { A: '◆', D: '◆◆', T: '◆◆◆', F: '◇', R: '↺' }
-const host = dom.window.document.createElement('div')
-dom.window.document.body.appendChild(host)
-const text = el => (el?.textContent ?? '').replace(/\s+/g, ' ').trim()
-
 function renderedHeadings(html) {
   host.innerHTML = html
   // Interactive UI that is not stat-block text: buttons (attack/dmg rollers, Reset uses, UsesChip),
@@ -485,14 +425,7 @@ function compare(rec, file, hazard) {
 
 // ── 6. run ────────────────────────────────────────────────────────────────────────────────────────
 const t0 = Date.now()
-const records = []
-const bdir = join(DATA, 'bestiary')
-for (const f of readdirSync(bdir).filter(f => f.endsWith('.json')).sort()) {
-  const j = JSON.parse(readFileSync(join(bdir, f), 'utf8'))
-  for (const rec of j.creature ?? []) records.push({ rec, file: f, hazard: false })
-}
-const hz = JSON.parse(readFileSync(join(DATA, 'hazards.json'), 'utf8'))
-for (const rec of hz.hazard ?? []) records.push({ rec, file: 'hazards.json', hazard: true })
+const records = loadRecords(DATA)
 
 let todo = ONLY ? records.filter(r => ONLY.has(r.rec._aon?.id) || ONLY.has(r.rec.name)) : records
 if (LIMIT) todo = todo.slice(0, LIMIT)
