@@ -1,0 +1,11 @@
+{
+  "name": "hh-bestiary-corpus",
+  "private": true,
+  "type": "module",
+  "description": "Verified corpus of every Archives of Nethys creature and hazard stat block, in the Heroes Heaven record shape.",
+  "scripts": {
+    "fetch": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/fetch-aon.mjs",
+    "build": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/build.mjs"
+  },
+  "engines": { "node": ">=22.21" }
+}
