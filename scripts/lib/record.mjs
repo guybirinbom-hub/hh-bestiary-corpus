@@ -3,7 +3,7 @@
 // The page text wins where both reads have a value; the structured facet fills a field only when the
 // page did not print one; a value neither read has stays absent. Key order is the app's.
 
-import { num, toArr } from './text.mjs';
+import { num, toArr, unlink } from './text.mjs';
 
 /** Record `source` / `page` from the document's primary source ("Bestiary pg. 178"). */
 export function docSource(doc) {
@@ -129,7 +129,8 @@ export function hazardRecord(doc, S, T) {
     level: pick(tf.level, S.level) ?? 0,
     traits: tf.traits ?? S.traits ?? [],
     ...(stealth ? { stealth } : {}),
-    description: doc.text ? [doc.text] : [],
+    // The Archives' plain `text` field, with the few links it still carries ("[Source\n](/Sources…)") unwrapped.
+    description: doc.text ? [unlink(doc.text)] : [],
     disable: { entries: disable ? [disable] : [] },
     routine: T.routine ? [T.routine] : [],
     reset: reset ? [reset] : [],

@@ -245,6 +245,18 @@ export function parseCreaturePage(doc) {
           // The same row printed twice (inline in the HP row and again as its own row): both are merged,
           // and the repeat is reported so the page's duplication is visible.
           if (fields[e.kind]?.length) bad(section, e.name, text, "IWR row printed twice; the record merges both");
+          // An ability header glued to the end of the row with no body ("[disease](…) Impossible Stature (aura,
+          // divine, illusion, mental)"): the header becomes its ability, and the missing body is reported.
+          {
+            const flatRow = stripLinks(text);
+            const g = flatRow.match(/^(.*?\S)\s+((?:[A-Z][\w'’-]*)(?:\s+(?:[A-Z][\w'’-]*|of|the|and))*)\s*\(([a-z][a-z ,-]*)\)\s*$/);
+            if (g && g[2].includes(" ")) {
+              text = g[1];
+              abilities[section].push({ name: g[2], traits: g[3].split(/\s*,\s*/).filter(Boolean), entries: [''] });
+              headings.push({ section, label: g[2], kind: 'ability' });
+              bad(section, g[2], flatRow.slice(g[1].length).trim(), `ability header glued to the ${e.name} row; the page prints no body`);
+            }
+          }
           if (e.kind === 'immunities') fields.immunities = mergeList(fields.immunities, splitList(text.replace(/\.$/, ''), unk));
           else fields[e.kind] = mergeRW(fields[e.kind], parseResWeak(text, unk));
           break;
@@ -305,9 +317,10 @@ export function parseCreaturePage(doc) {
     // A degree of success whose bold ran on into the next word ("**Success Kundal** inflicts…").
     if (cur?.kind === 'ability' && /^(?:Critical Success|Critical Failure|Success|Failure)\s/.test(n) && !abilityNames.has(n.toLowerCase())) return 'continue';
     // An option label inside an ability ("**Ally** …", "**Enemy** …" under Angry Rant): printed on the
-    // next line of the same paragraph, with no cost, and not one of the page's own ability names.
+    // next line of the same paragraph, with no cost, and not one of the page's own ability names. An
+    // affliction ("**Putrid Plague** (disease) … **Saving Throw** …") is an entry even when the facet omits it.
     if (cur?.kind === 'ability' && !lab.afterBlank && !lab.traitHeader && abilityNames.size && !/MonsterAbilities\.aspx/i.test(lab.url ?? '') && !facetMentions(n)
-      && !/^\s*<actions\b/i.test(lab.rest ?? '') && !STAT_LABEL.test(n) && !SPELL_HEADER.test(n) && !RITUAL_HEADER.test(n)) return 'continue';
+      && !/^\s*<actions\b/i.test(lab.rest ?? '') && !(/^\s*\((?:\[|[a-z])/.test(lab.rest ?? '') && /\*\*Saving Throw\*\*/i.test(lab.rest ?? '')) && !STAT_LABEL.test(n) && !SPELL_HEADER.test(n) && !RITUAL_HEADER.test(n)) return 'continue';
     if (cur?.kind === 'strike' && /^Damage$/i.test(n)) return 'continue';
     if (cur?.kind === 'spells' && /^(?:Cantrips?(?:\s*\(\d+\w*\))?|Constant\s*\(\d+\w*\)|\d+(?:st|nd|rd|th)(?:\s+rank)?)$/i.test(n)) return 'continue';
     if (cur?.kind === 'rituals' && /^\d+(?:st|nd|rd|th)$/i.test(n)) return 'continue';

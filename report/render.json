@@ -3,11 +3,11 @@
   "records": 5454,
   "clean": 1,
   "withRows": 5453,
-  "rows": 11371,
+  "rows": 11372,
   "byVerdict": {
    "adapter": 4958,
    "order": 5734,
-   "parse": 25,
+   "parse": 26,
    "render": 654
   },
   "topHeadings": {
@@ -121,6 +121,10 @@
      "rows": 2
     },
     {
+     "heading": "Impossible Stature",
+     "rows": 1
+    },
+    {
      "heading": "Melee +33",
      "rows": 1
     },
@@ -130,10 +134,6 @@
     },
     {
      "heading": "Melee bony hand",
-     "rows": 1
-    },
-    {
-     "heading": "Melee g7ujik",
      "rows": 1
     }
    ],
@@ -162,9 +162,9 @@
   },
   "matchedWithoutRow": {
    "optionLines": 72,
-   "unboldedHeaders": 39
+   "unboldedHeaders": 45
   },
-  "parseOrMergedExplainedByUnparsed": 25,
+  "parseOrMergedExplainedByUnparsed": 26,
   "data": "data",
   "vendor": "41c2b05733f19e69b4a366a178a8c9d76718d4c7",
   "scope": "StatBlock only: name, level, source and rarity line are rendered by CombatantDetail and are not compared; trait pills are compared as a set; BT and ritual DC labels are values, not headings."
@@ -59528,6 +59528,29 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
+  },
+  {
+   "id": "creature-4581",
+   "name": "Elysian Titan",
+   "heading": "Impossible Stature",
+   "expected": null,
+   "rendered": "Impossible Stature",
+   "json": {
+    "name": "Impossible Stature",
+    "traits": [
+     "aura",
+     "divine",
+     "illusion",
+     "mental"
+    ],
+    "entries": [
+     ""
+    ],
+    "_slot": "mid"
+   },
+   "verdict": "parse",
+   "note": "the record carries a heading the page does not print as a bold entry label; page oddity, reported in report/unparsed.json: \"ability header glued to the Immunities row; the page prints no body\"",
+   "unparsed": "ability header glued to the Immunities row; the page prints no body"
   },
   {
    "id": "creature-4581",
