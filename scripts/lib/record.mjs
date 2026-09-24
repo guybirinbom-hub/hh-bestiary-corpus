@@ -47,7 +47,7 @@ export function creatureRecord(doc, S, T) {
   const perceptionNote = tf.perception !== undefined ? tf.perceptionNote : S.perceptionNote;
   const skills = tf.skills ?? S.skills ?? {};
   let speed = tf.speed, speedNote = tf.speedNote;
-  if (!speed) { speed = {}; for (const k of ['walk', 'fly', 'swim', 'burrow', 'climb']) if (S.speeds?.[k] !== undefined) speed[k] = S.speeds[k]; }
+  if (!speed || !Object.keys(speed).length) { speed = {}; for (const k of ['walk', 'fly', 'swim', 'burrow', 'climb']) if (S.speeds?.[k] !== undefined) speed[k] = S.speeds[k]; }
 
   const hp = tf.hp ?? (S.hp !== undefined ? [{ hp: S.hp }] : []);
   const defenses = {

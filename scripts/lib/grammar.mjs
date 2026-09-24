@@ -102,13 +102,25 @@ export function readLabel(line) {
   }
   // **[Label](url) suffix** — the suffix is body text (traits, numbers) unless it is more name words.
   const lm = inner.match(/^\s*\[([^\]]+)\]\(((?:[^()\s]|\([^()]*\))*)\)\s*(.*)$/s);
-  if (lm && lm[3] && !/^[A-Za-z]/.test(lm[3])) return fin(lm[1], `${lm[3]} ${rest}`, lm[2], unclosed);
+  if (lm && lm[3] && !/^[A-Za-z][A-Za-z'’\- ]*$/.test(lm[3].trim())) return fin(lm[1], `${lm[3]} ${rest}`, lm[2], unclosed);
   if (lm && !lm[3]) return fin(lm[1], rest, lm[2], unclosed);
   return fin(inner, rest, undefined, unclosed);
 
   function fin(raw, rest2, url, uncl = false) {
-    const name = clean1(raw.replace(/\*\*/g, '')).replace(/\s*:$/, '').trim();
-    return { name, rawLabel: raw, rest: rest2.replace(/^\s*:\s*/, '').trim(), url, unclosed: uncl };
+    let name = clean1(raw.replace(/\*\*/g, '')).replace(/\s*[:;]$/, '').replace(/^•\s*/, '').trim();
+    let lead = '';
+    // A cost token printed inside the bold: "Call Glaive or [three-actions]", "Cloak in Embers [reaction".
+    const tk = name.match(/\s+((?:or\s+)?\[(?:one-action|two-actions|three-actions|reaction|free-action)\]?(?:\s+or\s+\[[a-z-]+\]?)*)$/i);
+    if (tk) { lead = tk[1].replace(/^or\s+/i, '').replace(/\[([a-z-]+)$/i, '[$1]') + ' '; name = name.slice(0, tk.index).replace(/\s+or$/i, '').trim(); }
+    // A trait list printed inside the bold: "Wall Blend (concentrate)".
+    const tp = name.match(/^(.*?[A-Za-z])\s*(\([a-z][^()]*\))$/);
+    if (tp) { lead += tp[2] + ' '; name = tp[1].trim(); }
+    // A trait list whose "(" the bold swallowed the wrong side of: "Mental Rebirth curse, incapacitation, …, occult)".
+    if (/\)$/.test(name) && !name.includes('(')) {
+      const pm = name.match(/^((?:[A-Z][\w'’\-]*\s*)+)\s+([a-z].*)\)$/);
+      if (pm) { lead += `(${pm[2]}) `; name = pm[1].trim(); }
+    }
+    return { name, rawLabel: raw, rest: (lead + rest2.replace(/^\s*[:;]\s*/, '')).trim(), url, unclosed: uncl };
   }
 }
 
@@ -180,6 +192,9 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     if (!lab && (wasBlank || !cur || cur.kind === 'ability')) lab = readUnboldedHeader(line, abilityNames, wasBlank || !cur);
     if (lab) {
       lab.afterBlank = wasBlank;
+      // A bold run that begins lowercase is a word of the sentence around it ("…uses an auditory⏎**action**").
+      if (/^[a-z]/.test(lab.name) && cur) { cur.lines.push(line); continue; }
+      { const wc = lab.name.split(/\s+/).length; if (wc > 9 || (wc > 6 && /\.(?:\s|$)/.test(lab.name))) splitLongLabel(lab, abilityNames); }
       const kind = classify(lab.name, cur, lab);
       if (kind === 'absorbed') continue;
       if (kind !== 'continue') {
@@ -196,6 +211,35 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     while (e.lines.length && e.lines[e.lines.length - 1] === '') e.lines.pop();
   }
   return entries;
+}
+
+/**
+ * A bold run that covers a whole sentence ("**Terrain Advantage Non-lizardfolk creatures … scout.**"):
+ * keep the page's own ability name (from the facet) or the Title Case words before the sentence starts.
+ */
+function splitLongLabel(lab, abilityNames) {
+  const low = lab.name.toLowerCase();
+  let best = '';
+  for (const n of abilityNames) if (low.startsWith(n + ' ') && n.length > best.length) best = n;
+  let cut = best.length;
+  if (!cut) {
+    const words = lab.name.split(/\s+/);
+    for (let k = 1; k < Math.min(words.length, 6); k++) {
+      if (!/^[A-Z]/.test(words[k - 1]) && !/^(?:of|the|and|to|in|on|by)$/.test(words[k - 1])) break;
+      if (/^(?:The|A|An|This|These|Its|If|When|Each|Every|While|Any|Creatures?|It|They|Their|Non-\S+|Once|Whenever|As|On|In)$/.test(words[k])
+        || (/^[a-z]/.test(words[k]) && !/^(?:of|the|and|to|in|on|by|a|an|with|from|for|at)$/.test(words[k]))) {
+        // A clause label glued to the name ("Unbalancing Rip Requirements The eron…") stays in the body.
+        let k2 = k;
+        while (k2 > 1 && /^(?:Requirements?|Trigger|Frequency|Effect)$/.test(words[k2 - 1])) k2--;
+        cut = words.slice(0, k2).join(' ').length;
+        break;
+      }
+    }
+  }
+  if (!cut) return;
+  const tail = lab.name.slice(cut).trim();
+  lab.name = lab.name.slice(0, cut).trim();
+  lab.rest = `${tail} ${lab.rest ?? ''}`.trim();
 }
 
 function findInlineHeader(line, abilityNames) {
@@ -231,7 +275,7 @@ export function flat(e) {
 export function parseResWeak(md, unk) {
   const out = [];
   for (const part of splitTopLevel(String(md ?? ''))) {
-    const s = clean1(part, unk).replace(/\.$/, '');
+    const s = clean1(part, unk).replace(/[.;]$/, '').trim();
     if (!s) continue;
     const m = s.match(/^(.+?)\s+(\d+)\s*(?:\((.+?)\)?\.?)?$/);
     if (m) {
@@ -305,20 +349,20 @@ export function parseStrike(range, e, unk) {
     s = s.replace(tok[0], ' ');
   }
   let dmg = '';
-  const dm = s.match(/\*\*Damage\*\*|(?:^|,\s*|\)\s*)Damage\s/);
+  const dm = s.match(/\*\*Damage\*\*|(?:^|[,;]\s*|\)\s*)Damage\s/);
   let head = s;
   if (dm) { head = s.slice(0, dm.index + (dm[0].startsWith(',') || dm[0].startsWith(')') ? 1 : 0)); dmg = s.slice(dm.index + dm[0].length); }
   let extra = '';
   if (!dm) {
     // Some strikes print an effect clause instead of damage.
-    const em = s.match(/\*\*(Effect|Critical Success|Success)\*\*/);
+    const em = s.match(/\*\*(Effect|Critical Success|Success)\*\*|,\s*(Effect)\s/);
     if (em) { head = s.slice(0, em.index); extra = s.slice(em.index); }
   }
-  const h = head.replace(/_([^_\n]+?)_/g, '$1').replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
+  const h = head.replace(/_/g, '').replace(/\*\*(?:Melee|Ranged)\*\*/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().replace(/[,;.\s]+$/, '');
   // Name, the first bonus (optionally a MAP-style "+10/+6/+2" or "[+10/+6]"), then the trait paren.
   const m = h.match(/^(.*?)\s*([+-]\s?\d+)((?:\s*\/\s*[+-]\d+)*|\s*\[[+-]\d+(?:\/[+-]\d+)*\])\s*,?\s*(?:\((.*)\))?\s*[,.]?\s*$/);
   if (!m) return { error: 'strike without an attack bonus', raw: h };
-  const name = clean1(m[1], unk);
+  const name = clean1(m[1], unk).replace(/^[\][(),;:\s]+/, '');
   if (!name || !/[A-Za-z]/.test(name)) return { error: 'strike without a name', raw: h };
   const traits = m[4] ? splitTopLevel(m[4]).map((t) => clean1(t, unk)).filter(Boolean) : [];
   const damage = clean1(dmg || extra, unk).replace(/^[:,]\s*/, '');
@@ -334,6 +378,9 @@ export function parseStrike(range, e, unk) {
 export function parseAbility(e, unk, issues) {
   let first = e.first;
   let activity;
+  // "(concentrate) <actions…/>" — a trait list the bold carried ahead of the cost: read the cost first.
+  const swap = first.match(/^\s*(\([^()]*\))\s*(<actions\s+string="[^"]*"\s*\/?>)/i);
+  if (swap) first = `${swap[2]} ${swap[1]}${first.slice(swap[0].length)}`;
   const lead = first.match(/^\s*<actions\s+string="([^"]*)"\s*\/?>/i);
   if (lead) {
     activity = actionStringToActivity(lead[1]);
@@ -341,20 +388,30 @@ export function parseAbility(e, unk, issues) {
     const second = first.match(/^\s*(?:\([^)]*\)\s*)?<actions\s+string="([^"]*)"/i);
     if (second && second[1]) issues.push({ line: e.first, reason: 'second <actions> tag on an ability header' });
   } else {
-    const tok = first.match(/^\s*\[(one-action|two-actions|three-actions|reaction|free-action)\]/i);
+    const TOK = { 'one-action': 'Single Action', 'two-actions': 'Two Actions', 'three-actions': 'Three Actions', reaction: 'Reaction', 'free-action': 'Free Action' };
+    const tok = first.match(/^\s*\[(one-action|two-actions|three-actions|reaction|free-action)\](?:\s+(to|or)\s+\[(one-action|two-actions|three-actions|reaction|free-action)\])?/i);
     if (tok) {
-      const w = tok[1].toLowerCase();
-      activity = w === 'reaction' ? { number: 1, unit: 'reaction' } : w === 'free-action' ? { number: 1, unit: 'free' }
-        : { number: w.startsWith('three') ? 3 : w.startsWith('two') ? 2 : 1, unit: 'action' };
+      const str = TOK[tok[1].toLowerCase()] + (tok[3] ? ` ${tok[2]} ${TOK[tok[3].toLowerCase()]}` : '');
+      activity = actionStringToActivity(str);
       first = first.slice(tok[0].length);
     }
   }
   // Leading "(trait, trait)" — read over link text so a URL's parentheses do not count.
   let traits = [];
+  // A trait list the page never closed before the next clause: "(occult **Trigger** The skaveling …".
+  const unclosed = first.match(new RegExp(`^\\s*\\(([^()]*?)\\s*(\\*\\*(?:${CLAUSE_LABELS.join('|')})\\*\\*)`, 'i'));
+  if (unclosed && !/\)/.test(stripLinks(unclosed[1])) && (unclosed[1].match(/\[/g) ?? []).length === (unclosed[1].match(/\]/g) ?? []).length) {
+    traits = splitTopLevel(stripLinks(unclosed[1])).map((t) => clean1(t, unk)).filter(Boolean);
+    first = first.slice(unclosed.index + unclosed[0].length - unclosed[2].length);
+  }
   const fl = stripLinks(first).replace(/^\s+/, '');
-  const tm = fl.match(/^\(([^()]*(?:\([^()]*\)[^()]*)*)\)/);
+  const tm = traits.length ? null : fl.match(/^\(([^()]*(?:\([^()]*\)[^()]*)*)\)/);
   if (tm) {
-    const items = splitTopLevel(tm[1]).map((t) => clean1(t, unk)).filter(Boolean);
+    let items = splitTopLevel(tm[1]).map((t) => clean1(t, unk)).filter(Boolean);
+    // A clause label that slid inside the trait list: "(disease **Saving Throw** DC 22 Fortitude)".
+    let spill = '';
+    const labRe = new RegExp(`\\s(${CLAUSE_LABELS.join('|')})\\s`, '');
+    items = items.map((t) => { const k = t.match(labRe); if (k && !spill) { spill = t.slice(k.index).trim(); return t.slice(0, k.index).trim(); } return t; }).filter(Boolean);
     const looksLikeTraits = items.length && items.every((t) => t.length <= 40 && /^[A-Za-z]/.test(t) && !/[.:;]/.test(t));
     if (looksLikeTraits) {
       traits = items;
@@ -366,7 +423,7 @@ export function parseAbility(e, unk, issues) {
         if (ch === '(') depth++;
         else if (ch === ')') { depth--; if (depth === 0) break; }
       }
-      first = first.slice(j + 1);
+      first = (spill ? ` **${spill.split(' ')[0]}** ${spill.split(' ').slice(1).join(' ')}` : '') + first.slice(j + 1);
     }
   }
   const paras = [first, ...e.lines];
@@ -376,15 +433,21 @@ export function parseAbility(e, unk, issues) {
   // Each bold clause label goes to its own line as "Label text".
   text = text.replace(CLAUSE_INLINE_G, (_, lab) => `\n${lab} `);
   let body = clean(text, unk);
-  body = body.split('\n').map((l) => l.replace(/;\s*$/, '').trim()).join('\n').replace(/^\n+/, '');
+  // Unbolded clause labels after a semicolon ("…once per round; Requirements The natbakh's…") get their own line.
+  body = body.replace(/;\s+(Requirements?|Trigger|Effect|Frequency)\s+(?=[A-Z])/g, '\n$1 ');
+  body = body.split('\n').map((l) => l.replace(/;\s*$/, '').trim()).join('\n').replace(/^\n+/, '').replace(/^[;,:]\s*/, '');
   let trigger;
   const trg = body.match(/(^|\n)Trigger ([^\n]*)/);
   if (trg) {
-    const t = trg[2];
+    let t = trg[2];
+    let spilled = '';
+    // "Trigger … Strike Effect The skaveling…": the Effect label lost its bold, so the trigger ends there.
+    const eff = t.match(/\s(Effect|Requirements?)\s+(?=[A-Z])/);
+    if (eff && (t.indexOf(';') < 0 || eff.index < t.indexOf(';'))) { spilled = `\n${t.slice(eff.index + 1)}`; t = t.slice(0, eff.index); }
     const semi = t.indexOf(';');
     trigger = (semi >= 0 ? t.slice(0, semi) : t).trim();
     const leftover = semi >= 0 ? t.slice(semi + 1).trim() : '';
-    body = (body.slice(0, trg.index) + (trg[1]) + leftover + body.slice(trg.index + trg[0].length))
+    body = (body.slice(0, trg.index) + (trg[1]) + leftover + spilled + body.slice(trg.index + trg[0].length))
       .replace(/\n{2,}/g, '\n').replace(/^\n+|\n+$/g, '');
   }
   const out = { name: e.name };
@@ -402,7 +465,8 @@ export function parseSpeed(text, unk) {
   const headS = semi >= 0 ? t.slice(0, semi) : t;
   const tailS = semi >= 0 ? t.slice(semi + 1) : '';
   const speed = {};
-  const MODE = /^(?:(land|walk|fly|swim|burrow|climb)\s+(?:speed\s+)?)?(\d+)\s*(?:feet|foot|ft\.?)?\.?\s*(\(.*\))?$/i;
+  // "fly 60 feet", "25 feet", "fly 10 feet (can't ascend…)", "fly 30 feet in dim light" (the qualifier stays in the note).
+  const MODE = /^(?:(land|walk|fly|swim|burrow|climb)\s+(?:speed\s+)?)?(\d+)\s*(?:feet|foot|ft\.?)?\.?\s*(\(.*\)|(?:in|while|when|only|underwater|on)\b.*)?$/i;
   const take = (c, allowBare) => {
     const m = c.match(MODE);
     if (!m || (!m[1] && !allowBare)) return false;

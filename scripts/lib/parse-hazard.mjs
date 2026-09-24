@@ -46,9 +46,30 @@ export function parseHazardPage(doc) {
     const entries = toEntries(secLines, section, classify, bad, abilityNames);
     for (const e of entries) {
       headings.push({ section, label: e.name, kind: e.kind });
+      handle(e, section);
+    }
+  });
+
+  function handle(e, section) {
       const unk = (tag, ctx) => bad(section, e.name, ctx, `unknown tag <${tag}>`);
-      const text = flat(e);
-      const paras = paragraphs(e);
+      let text = flat(e);
+      let paras = paragraphs(e);
+      const later = [];
+      // A defence row that runs into the next: "**Web Hardness** 5; **Web HP** 20; **Immunities** …".
+      if (['hardness', 'hp', 'immunities', 'resistances', 'weaknesses'].includes(e.kind)) {
+        const cuts = [...text.matchAll(/\s*[;,]?\s*\*\*((?:[A-Z][\w'’-]*\s+)*?(?:Hardness|HP|Immunities|Resistances|Weaknesses))\*\*/g)].filter((m) => m.index > 0);
+        if (cuts.length) {
+          const whole = text;
+          text = whole.slice(0, cuts[0].index);
+          paras = [text];
+          for (let k = 0; k < cuts.length; k++) {
+            const lab = cuts[k][1];
+            const val = whole.slice(cuts[k].index + cuts[k][0].length, k + 1 < cuts.length ? cuts[k + 1].index : whole.length);
+            const kind = /Hardness$/.test(lab) ? 'hardness' : /HP$/.test(lab) ? 'hp' : lab.toLowerCase();
+            later.push({ section, kind, name: lab, rawLabel: lab, first: val.trim(), lines: [] });
+          }
+        }
+      }
       switch (e.kind) {
         case 'source': {
           const s = clean1(text, unk);
@@ -65,7 +86,7 @@ export function parseHazardPage(doc) {
         }
         case 'stealth': {
           const [first, ...rest] = paras;
-          const s = clean1(first ?? '', unk);
+          const s = clean1(first ?? '', unk).replace(/^Stealth\s+/i, '');
           const m = s.match(/^(DC\s*)?([+\-–−]?\s*\d+)\s*(?:\(([^)]*)\))?\s*(.*)$/i);
           if (m) {
             const n = num(m[2].replace(/[–−]/, '-').replace(/\s+/g, ''));
@@ -90,6 +111,9 @@ export function parseHazardPage(doc) {
           const s = clean1(text, unk);
           const m = s.match(/^(\d+)(.*)$/);
           if (!m) { bad(section, e.name, s, 'hardness without a number'); break; }
+          // "**Spout Hardness** 8; Spout HP 32 (BT 16)": the HP row lost its bold.
+          const hpm = m[2].match(/^\s*[;,]\s*((?:[A-Z][\w'’-]*\s+)*HP)\s+(\d.*)$/);
+          if (hpm) { m[2] = ''; later.push({ section, kind: 'hp', name: hpm[1], rawLabel: hpm[1], first: hpm[2], lines: [] }); }
           if (fields.hardness === undefined) fields.hardness = num(m[1]);
           else bad(section, e.name, s, 'second hardness with no field');
           if (m[2].replace(/[,;.\s]/g, '')) bad(section, e.name, s, 'hardness note with no field');
@@ -97,9 +121,10 @@ export function parseHazardPage(doc) {
         }
         case 'hp': {
           const s = clean1(text, unk);
-          const m = s.match(/^(\d+)\s*(.*)$/);
+          const m = s.match(/^(?:(\([^)]*\))\s*)?(\d+)\s*(.*)$/);
           if (!m) { bad(section, e.name, s, 'HP without a number'); break; }
-          let note = m[2];
+          let note = [m[1], m[3]].filter(Boolean).join(' ');
+          m[1] = m[2];
           const bt = note.match(/\(?\s*BT\s*(\d+)\s*\)?/i);
           if (bt) {
             if (fields.bt === undefined) fields.bt = num(bt[1]);
@@ -141,8 +166,8 @@ export function parseHazardPage(doc) {
           actions.push(ab);
         }
       }
-    }
-  });
+      for (const x of later) handle(x, section);
+  }
   if (hp.length) fields.hp = hp;
   return {
     fields, attacks, actions,

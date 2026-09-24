@@ -113,7 +113,12 @@ export function parseCreaturePage(doc) {
         for (const p of paras.slice(1)) {
           const flatP = p.replace(/\n/g, ' ');
           // The list simply carried on past a blank line ("critical hits, death effects⏎⏎[disease](…), …").
-          if (LIST_KINDS.has(e.kind) && /^(?:[a-z(]|\[[a-z_])/.test(flatP)) { text += (/^\(/.test(flatP) ? ' ' : ', ') + flatP; continue; }
+          if (LIST_KINDS.has(e.kind) && /^(?:\*\*)?(?:[a-z(]|\[[a-z_])/.test(flatP)) {
+            // "area⏎⏎damage 5, …" is one entry broken in two; "death effects⏎⏎[disease](…)" is the next item.
+            const glue = /^\(/.test(flatP) || ((e.kind === 'resistances' || e.kind === 'weaknesses') && !/\d\)?\s*[,;]?\s*$/.test(text)) ? ' ' : ', ';
+            text += glue + flatP;
+            continue;
+          }
           // A defence row whose bold was lost: "Weaknesses [cold](…) 25".
           const sl = flatP.match(/^(Immunities|Resistances|Weaknesses)\s+(.*)$/);
           if (sl) { handleEntry({ section, kind: sl[1].toLowerCase(), name: sl[1], rawLabel: sl[1], first: sl[2], lines: [] }, section); continue; }
@@ -129,6 +134,9 @@ export function parseCreaturePage(doc) {
       }
       // A defence row that swallowed the next one: "**HP** 400 ((body); **Resistances** poison 15" or
       // "cold iron 15, Resistances fire 15". A capitalised row label inside a defence row starts that row.
+      // A second HP row opens a part's own stat line ("**HP** 30 (head), deceptive regrowth; **Immunities** area
+      // damage; **Weakness** cold iron 10"): all of it describes the part, so it stays on that pool.
+      if (e.kind === 'hp' && hpTexts.length) { hpTexts.push(text); return; }
       if (STAT_ROW_KINDS.has(e.kind)) {
         const re = /\s*[;,]?\s*(?:\*\*(Immunities|Resistances|Weaknesses|Hardness|HP)\*\*|\b(Immunities|Resistances|Weaknesses)\b(?=\s)|\b(HP)\b(?=\s*(?:\(|\d)))/g;
         const cuts = [...text.matchAll(re)].filter((m) => m.index > 0);
@@ -381,7 +389,7 @@ function parseHp(text, unk) {
       }
     }
     // Inline defence labels spilled into the HP row are read by their own entries; drop them here.
-    rest = rest.replace(/\b(?:Immunities|Resistances|Weaknesses|Hardness)\b[\s\S]*$/, (x) => (/[A-Za-z]/.test(x) ? '' : x));
+    if (i === 0) rest = rest.replace(/\b(?:Immunities|Resistances|Weaknesses|Hardness)\b[\s\S]*$/, (x) => (/[A-Za-z]/.test(x) ? '' : x));
     let note = rest.replace(/^[\s,;]+|[\s,;]+$/g, '').trim();
     if (/^\(\s*\)$/.test(note) || note === ')' || note === '(') note = '';
     note = balanceParens(note);
@@ -437,7 +445,7 @@ function parseSpellBlock(e, unk, report) {
     const label = r[1];
     let key, level;
     if (/^cantrip/i.test(label)) { key = '0'; level = r[2] ? num(r[2]) : 0; }
-    else if (/^constant/i.test(label)) { key = `constant-${r[3]}`; level = num(r[3]); }
+    else if (/^constant/i.test(label)) { key = `constant:${num(r[3])}`; level = num(r[3]); }
     else { key = String(num(r[4])); level = num(r[4]); }
     const h = harvestSpells(seg, unk);
     if (r[5]) h.slots = num(r[5]);
@@ -446,9 +454,13 @@ function parseSpellBlock(e, unk, report) {
     const rank = { level, spells: h.spells };
     if (h.slots !== undefined) rank.slots = h.slots;
     if (h.leftover) report(h.leftover, 'text in a spell rank');
-    if (key.startsWith('constant-')) constants.push([key, rank]); else entry[key] = rank;
+    if (key.startsWith('constant:')) constants.push([key, rank]); else entry[key] = rank;
   }
-  for (const [k, v] of constants) entry[k] = v;
+  // Constant spells nest under entry.constant = {"<rank>": {level, spells}}: the shape the app's adapter reads.
+  if (constants.length) {
+    entry.constant = {};
+    for (const [k, v] of constants) entry.constant[k.slice('constant:'.length)] = v;
+  }
   block.entry = entry;
   if (!ranks.length && block.focusPoints === undefined) {
     const rest = clean1(all, unk);
