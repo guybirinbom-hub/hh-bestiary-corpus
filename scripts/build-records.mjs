@@ -1,0 +1,121 @@
+// Stage 2 of the corpus pipeline (docs/DESIGN.md): cache -> records + reports.
+//
+//   node scripts/build-records.mjs
+//
+// Reads cache/aon/{creature,hazard}.jsonl, reads every document twice (facets and page text), writes
+// data/bestiary/creatures-<source>.json, data/hazards.json, data/index.json and report/{agreement,
+// unparsed,coverage}.json, then prints a one-screen summary. Serialization: JSON.stringify with no
+// indentation and no trailing newline.
+
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { creatureFacets, hazardFacets } from './lib/facets.mjs';
+import { parseCreaturePage } from './lib/parse-creature.mjs';
+import { parseHazardPage } from './lib/parse-hazard.mjs';
+import { compareCreature, compareHazard } from './lib/agreement.mjs';
+import { creatureIndexRow, creatureRecord, dedupIndex, fileKey, hazardIndexRow, hazardRecord } from './lib/record.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const CACHE = join(ROOT, 'cache', 'aon');
+const DATA = join(ROOT, 'data');
+const REPORT = join(ROOT, 'report');
+
+const idNum = (id) => parseInt(String(id).replace(/^\D+/, ''), 10);
+function load(cat) {
+  const file = join(CACHE, `${cat}.jsonl`);
+  if (!existsSync(file)) throw new Error(`missing ${file}: run npm run fetch first`);
+  return readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
+    .sort((a, b) => idNum(a.id) - idNum(b.id));
+}
+const write = (p, v) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(v)); };
+
+const creatures = load('creature');
+const hazards = load('hazard');
+const meta = JSON.parse(readFileSync(join(CACHE, 'meta.json'), 'utf8'));
+
+const agreementRows = [];
+const unparsedRows = [];
+const onlyStructured = {}, onlyText = {};
+const bump = (o, k) => { o[k] = (o[k] ?? 0) + 1; };
+
+const shards = new Map();
+const indexIn = [];
+let creaturesWithMarkdown = 0;
+for (const doc of creatures) {
+  if (!String(doc.markdown ?? '').trim()) { unparsedRows.push({ id: doc.id, name: doc.name, section: '', heading: '', line: '', reason: 'document has no markdown' }); continue; }
+  creaturesWithMarkdown++;
+  const S = creatureFacets(doc);
+  const T = parseCreaturePage(doc);
+  const cmp = compareCreature(S, T);
+  for (const r of cmp.rows) agreementRows.push({ id: doc.id, name: doc.name, ...r });
+  for (const f of cmp.onlyStructured) bump(onlyStructured, f);
+  for (const f of cmp.onlyText) bump(onlyText, f);
+  for (const u of T.unparsed) unparsedRows.push({ id: doc.id, name: doc.name, ...u });
+  const rec = creatureRecord(doc, S, T);
+  const { key } = fileKey(doc);
+  if (!shards.has(key)) shards.set(key, []);
+  shards.get(key).push(rec);
+  indexIn.push({ doc, row: creatureIndexRow(doc, rec) });
+}
+
+const hazardRecords = [];
+for (const doc of hazards) {
+  if (!String(doc.markdown ?? '').trim()) { unparsedRows.push({ id: doc.id, name: doc.name, section: '', heading: '', line: '', reason: 'document has no markdown' }); continue; }
+  const S = hazardFacets(doc);
+  const T = parseHazardPage(doc);
+  const cmp = compareHazard(S, T);
+  for (const r of cmp.rows) agreementRows.push({ id: doc.id, name: doc.name, ...r });
+  for (const f of cmp.onlyStructured) bump(onlyStructured, `hazard.${f}`);
+  for (const f of cmp.onlyText) bump(onlyText, `hazard.${f}`);
+  for (const u of T.unparsed) unparsedRows.push({ id: doc.id, name: doc.name, ...u });
+  const rec = hazardRecord(doc, S, T);
+  hazardRecords.push(rec);
+  indexIn.push({ doc, row: hazardIndexRow(doc, rec) });
+}
+
+// ── write data ────────────────────────────────────────────────────────────────────────────────────
+const bestiaryDir = join(DATA, 'bestiary');
+if (existsSync(bestiaryDir)) for (const f of readdirSync(bestiaryDir)) if (f.endsWith('.json')) rmSync(join(bestiaryDir, f));
+mkdirSync(bestiaryDir, { recursive: true });
+for (const [key, list] of shards) write(join(bestiaryDir, `creatures-${key}.json`), { creature: list });
+write(join(DATA, 'hazards.json'), { hazard: hazardRecords });
+const { index, droppedByRemasterLink, droppedByPriority } = dedupIndex(indexIn);
+write(join(DATA, 'index.json'), index);
+
+// ── reports ───────────────────────────────────────────────────────────────────────────────────────
+const byField = {};
+for (const r of agreementRows) bump(byField, r.field);
+write(join(REPORT, 'agreement.json'), { rows: agreementRows, byField: sortDesc(byField) });
+const byReason = {};
+for (const r of unparsedRows) bump(byReason, r.reason);
+write(join(REPORT, 'unparsed.json'), { total: unparsedRows.length, byReason: sortDesc(byReason), rows: unparsedRows });
+const files = [...shards.keys()].map((k) => `creatures-${k}.json`);
+const named = new Set(index.filter((r) => r.file !== '../hazards.json').map((r) => r.file));
+const coverage = {
+  live: { creature: meta.live?.creature, hazard: meta.live?.hazard },
+  corpus: { creature: creaturesWithMarkdown, hazard: hazardRecords.length },
+  files: files.length,
+  index: {
+    rows: index.length,
+    creatures: index.filter((r) => !r.isHazard).length,
+    hazards: index.filter((r) => r.isHazard).length,
+    droppedByRemasterLink, droppedByPriority,
+  },
+  onlyStructured: sortDesc(onlyStructured),
+  onlyText: sortDesc(onlyText),
+};
+write(join(REPORT, 'coverage.json'), coverage);
+
+function sortDesc(o) { return Object.fromEntries(Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))); }
+
+// ── summary ───────────────────────────────────────────────────────────────────────────────────────
+const orphans = files.filter((f) => !named.has(f));
+const top = (o, n) => Object.entries(o).slice(0, n).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
+console.log(`records    ${creaturesWithMarkdown} creatures (live ${meta.live?.creature}), ${hazardRecords.length} hazards (live ${meta.live?.hazard})`);
+console.log(`files      ${files.length} bestiary shards + hazards.json${orphans.length ? `; ${orphans.length} shard(s) named by no index row: ${orphans.join(', ')}` : ''}`);
+console.log(`index      ${index.length} rows (${coverage.index.creatures} creatures, ${coverage.index.hazards} hazards); dropped ${droppedByRemasterLink} by remaster link, ${droppedByPriority} by priority`);
+console.log(`agreement  ${agreementRows.length} rows: ${top(sortDesc(byField), 12)}`);
+console.log(`unparsed   ${unparsedRows.length} rows: ${top(sortDesc(byReason), 12)}`);
+console.log(`onlyStruct ${top(coverage.onlyStructured, 8)}`);
+console.log(`onlyText   ${top(coverage.onlyText, 8)}`);
