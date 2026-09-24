@@ -1,0 +1,417 @@
+import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
+import type { Creature } from '../types/pf2e'
+import type { PcStats, PcSkill, PcDetailConfig, ImportedSheet } from '../utils/pcDetail'
+import type { ImportedCharacter } from '../utils/wanderersGuide'
+import { useCombatStore } from './combatStore'
+import { notifyPersist } from './persistBus'
+
+let _pid = 0, _plid = 0
+const npid = () => `party-${Date.now()}-${++_pid}`
+const nplid = () => `player-${Date.now()}-${++_plid}`
+
+export interface PartyPlayer {
+  id: string
+  name: string
+  notes: string
+  memberType: 'pc' | 'npc'
+  /** Stable Heroes Heaven character id, set for PCs mirrored from a campaign (see syncCampaignParty).
+   *  Matching on this instead of the name is what lets a PC be renamed without losing its turn history
+   *  and keeps two same-named PCs distinct. Undefined for hand-made standalone players. */
+  charId?: string
+  creature?: Creature | null   // NPCs only — linked stat block
+  /** Cumulative turn-time average (seconds) folded in via the turn timer's
+   *  "Save to Averages". Paired with turnCount so new batches weight right. */
+  turnAvgSeconds?: number
+  turnCount?: number
+  /** One dated point per "Save to Averages" — the average of that saved
+   *  session. Drives the per-player turn-time timeline. */
+  turnHistory?: Array<{ at: number; avgSeconds: number; turnCount: number }>
+  /** Optional PF2e stat sheet for PCs (shown per the party's detail level). */
+  pcStats?: PcStats
+  /** Full sheet from a Wanderer's Guide import — kept even when the detail
+   *  level hides most of it, so nothing is lost. */
+  pcSheet?: ImportedSheet
+}
+
+export interface Party {
+  id: string
+  name: string
+  level: number
+  players: PartyPlayer[]
+  isFavorite: boolean
+  /** Per-party override of the global PC detail level. Undefined = use the
+   *  global default from settings. */
+  pcDetail?: PcDetailConfig
+  /** Set when this party MIRRORS a Heroes Heaven campaign (embedded tracker). Its PC roster is
+   *  kept in sync with the campaign's characters by `syncCampaignParty`; it exists so the tracker's
+   *  own machinery (Add-to-Initiative, turn-timer "Save to Averages", per-player turn history) has a
+   *  real party to work against. Undefined for hand-made standalone parties. */
+  campaignId?: string
+}
+
+interface PartyStore {
+  parties: Party[]
+  activePartyId: string | null
+  addParty: (name: string, level: number) => string
+  removeParty: (id: string) => void
+  updateParty: (id: string, updates: Partial<Pick<Party, 'name' | 'level'>>) => void
+  toggleFavorite: (id: string) => void
+  setActiveParty: (id: string | null) => void
+  addPlayer: (partyId: string) => void
+  addNPC: (partyId: string, creature?: Creature | null) => void
+  removePlayer: (partyId: string, playerId: string) => void
+  updatePlayer: (partyId: string, playerId: string, updates: Partial<Pick<PartyPlayer, 'name' | 'notes' | 'creature'>>) => void
+  getSortedParties: () => Party[]
+  findPlayerByName: (combatantName: string) => { party: Party; player: PartyPlayer } | null
+  /** Cumulatively fold a batch of turn times into every party member whose
+   *  name matches (case-insensitive). Used by the turn timer's Save to
+   *  Averages. */
+  addTurnsToPlayerByName: (name: string, sumSeconds: number, count: number) => void
+  /** Push a PC's CURRENT hp from the combat tracker back onto their party-card
+   *  sheet (matched by name). Keeps the card's HP live as they take damage in a
+   *  fight. No-op if no matching PC has a stat sheet. */
+  syncCurrentHpByName: (name: string, hpCurrent: number) => void
+  /** Clear a single player's stored turn average. */
+  resetPlayerAverage: (partyId: string, playerId: string) => void
+  /** Merge a patch into a PC's stat sheet. */
+  updatePcStats: (partyId: string, playerId: string, patch: Partial<PcStats>) => void
+  /** Merge a patch into one of a PC's skills. */
+  updatePcSkill: (partyId: string, playerId: string, skill: string, patch: Partial<PcSkill>) => void
+  /** Set (or clear, with null) a party's PC-detail override. */
+  setPartyDetail: (partyId: string, config: PcDetailConfig | null) => void
+  /** Import a parsed character into a party. If a PC with the same name (case-
+   *  insensitive) already exists there, its stats/sheet are updated in place;
+   *  otherwise a new PC is added. Returns whether it matched and the player id. */
+  importCharacter: (partyId: string, parsed: ImportedCharacter) => { matched: boolean; playerId: string }
+  /** Mirror a Heroes Heaven campaign's PCs into the party tagged with `campaignId` (creating it if
+   *  needed), so the tracker's own features have a party to act on. Upserts one PC player per member
+   *  matched case-insensitively by name — PRESERVING any accumulated turnAvg/turnCount/turnHistory —
+   *  sets each PC's maxHP, prunes PCs who left (keeping hand-added NPCs), makes it the active party,
+   *  and returns its id. Called by the embed from the live campaign roster. */
+  syncCampaignParty: (campaignId: string, campaignName: string, members: { charId: string; name: string; maxHP?: number }[]) => string
+  /** Re-read the parties out of localStorage — another of this GM's devices wrote a newer copy and the
+   *  mirror (src/data/trackerSync.ts) put it there. Keeps the active party selected when it survived. */
+  reloadFromStorage: () => void
+}
+
+function saveToStorage(parties: Party[]) {
+  try { localStorage.setItem('pf2e-parties', JSON.stringify(parties)) } catch { /**/ }
+  notifyPersist('pf2e-parties')
+}
+
+function loadFromStorage(): Party[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem('pf2e-parties') ?? '[]') as Party[]
+    // Back-compat: old entries have no memberType
+    return raw.map(party => ({
+      ...party,
+      players: party.players.map(pl => ({
+        ...pl,
+        memberType: (pl.memberType ?? 'pc') as 'pc' | 'npc',
+      })),
+    }))
+  } catch { return [] }
+}
+
+function sortParties(parties: Party[]): Party[] {
+  const favs = parties.filter(p => p.isFavorite).sort((a, b) => a.name.localeCompare(b.name))
+  const rest = parties.filter(p => !p.isFavorite).sort((a, b) => a.name.localeCompare(b.name))
+  return [...favs, ...rest]
+}
+
+export const usePartyStore = create<PartyStore>()(immer((set, get) => ({
+  parties: loadFromStorage(),
+  activePartyId: null,
+
+  addParty(name, level) {
+    const id = npid()
+    set(s => { s.parties.push({ id, name, level, players: [], isFavorite: false }) })
+    saveToStorage(get().parties)
+    return id
+  },
+
+  removeParty(id) {
+    set(s => {
+      s.parties = s.parties.filter(p => p.id !== id)
+      if (s.activePartyId === id) s.activePartyId = null
+    })
+    saveToStorage(get().parties)
+  },
+
+  updateParty(id, updates) {
+    set(s => {
+      const p = s.parties.find(p => p.id === id)
+      if (!p) return
+      if (updates.name !== undefined) p.name = updates.name
+      if (updates.level !== undefined) p.level = updates.level
+    })
+    saveToStorage(get().parties)
+  },
+
+  toggleFavorite(id) {
+    set(s => {
+      const p = s.parties.find(p => p.id === id)
+      if (p) p.isFavorite = !p.isFavorite
+    })
+    saveToStorage(get().parties)
+  },
+
+  setActiveParty(id) {
+    set(s => { s.activePartyId = s.activePartyId === id ? null : id })
+  },
+
+  addPlayer(partyId) {
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      if (p) p.players.push({ id: nplid(), name: 'New Player', notes: '', memberType: 'pc' })
+    })
+    saveToStorage(get().parties)
+  },
+
+  addNPC(partyId, creature) {
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      if (p) p.players.push({
+        id: nplid(),
+        name: creature?.name ?? 'NPC',
+        notes: '',
+        memberType: 'npc',
+        creature: creature ?? null,
+      })
+    })
+    saveToStorage(get().parties)
+  },
+
+  removePlayer(partyId, playerId) {
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      if (p) p.players = p.players.filter(pl => pl.id !== playerId)
+    })
+    saveToStorage(get().parties)
+  },
+
+  updatePlayer(partyId, playerId, updates) {
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      const pl = p?.players.find(pl => pl.id === playerId)
+      if (!pl) return
+      if (updates.name !== undefined) pl.name = updates.name
+      if (updates.notes !== undefined) pl.notes = updates.notes
+      if ('creature' in updates) pl.creature = updates.creature
+    })
+    saveToStorage(get().parties)
+  },
+
+  getSortedParties() { return sortParties(get().parties) },
+
+  findPlayerByName(combatantName) {
+    const lower = combatantName.toLowerCase()
+    // Prefer a real PC over a hand-added NPC that happens to share the name (an NPC "Kyra" must not
+    // shadow the PC "Kyra" and bind the combat-detail panel to the wrong one). Fall back to an NPC
+    // match only if no PC matches.
+    let npcFallback: { party: Party; player: PartyPlayer } | null = null
+    for (const party of get().parties) {
+      for (const player of party.players) {
+        if (player.name.toLowerCase() !== lower) continue
+        if (player.memberType !== 'npc') return { party, player }
+        npcFallback ??= { party, player }
+      }
+    }
+    return npcFallback
+  },
+
+  addTurnsToPlayerByName(name, sumSeconds, count) {
+    if (count <= 0) return
+    const lower = name.trim().toLowerCase()
+    set(s => {
+      // Scope to the ACTIVE party when there is one, so a PC name that also exists in another party
+      // (e.g. a standalone party + the campaign mirror) doesn't get the same turn batch folded in twice.
+      // Falls back to all parties only when nothing is active (a standalone with no active selection).
+      const parties = s.activePartyId ? s.parties.filter(p => p.id === s.activePartyId) : s.parties
+      for (const party of parties) {
+        for (const pl of party.players) {
+          // Turn averages are a PC stat — a hand-added NPC that happens to share a PC's name must not
+          // absorb the PC's turns.
+          if (pl.memberType === 'npc') continue
+          if (pl.name.trim().toLowerCase() !== lower) continue
+          const oldAvg = pl.turnAvgSeconds ?? 0
+          const oldCount = pl.turnCount ?? 0
+          const newCount = oldCount + count
+          pl.turnAvgSeconds = (oldAvg * oldCount + sumSeconds) / newCount
+          pl.turnCount = newCount
+          // Append this session's average as a dated timeline point, capped so a long-lived party's
+          // blob can't grow without bound (the per-day graph only ever shows a handful of recent days).
+          if (!pl.turnHistory) pl.turnHistory = []
+          pl.turnHistory.push({ at: Date.now(), avgSeconds: sumSeconds / count, turnCount: count })
+          if (pl.turnHistory.length > 500) pl.turnHistory = pl.turnHistory.slice(-500)
+        }
+      }
+    })
+    saveToStorage(get().parties)
+  },
+
+  syncCurrentHpByName(name, hpCurrent) {
+    const lower = name.trim().toLowerCase()
+    let changed = false
+    set(s => {
+      // Scope to the active party so damage to a PC in one campaign's combat can't overwrite the HP
+      // bar of an unrelated party's same-named PC (falls back to all parties only when none is active).
+      const parties = s.activePartyId ? s.parties.filter(p => p.id === s.activePartyId) : s.parties
+      for (const party of parties) {
+        for (const pl of party.players) {
+          // Only PCs that already have a stat sheet show an HP bar to update.
+          if (pl.memberType === 'npc' || !pl.pcStats || pl.name.trim().toLowerCase() !== lower) continue
+          if (pl.pcStats.hpCurrent !== hpCurrent) { pl.pcStats.hpCurrent = hpCurrent; changed = true }
+        }
+      }
+    })
+    if (changed) saveToStorage(get().parties)
+  },
+
+  resetPlayerAverage(partyId, playerId) {
+    set(s => {
+      const pl = s.parties.find(p => p.id === partyId)?.players.find(pl => pl.id === playerId)
+      if (!pl) return
+      pl.turnAvgSeconds = undefined
+      pl.turnCount = undefined
+      pl.turnHistory = undefined
+    })
+    saveToStorage(get().parties)
+  },
+
+  updatePcStats(partyId, playerId, patch) {
+    let pcName: string | undefined
+    set(s => {
+      const pl = s.parties.find(p => p.id === partyId)?.players.find(pl => pl.id === playerId)
+      if (!pl) return
+      pl.pcStats = { ...(pl.pcStats ?? {}), ...patch }
+      pcName = pl.name
+    })
+    saveToStorage(get().parties)
+    // Keep an in-combat copy of this PC's HP bar in step with the sheet.
+    if (pcName && typeof patch.maxHP === 'number') useCombatStore.getState().setPcMaxHP(pcName, patch.maxHP)
+  },
+
+  updatePcSkill(partyId, playerId, skill, patch) {
+    set(s => {
+      const pl = s.parties.find(p => p.id === partyId)?.players.find(pl => pl.id === playerId)
+      if (!pl) return
+      if (!pl.pcStats) pl.pcStats = {}
+      if (!pl.pcStats.skills) pl.pcStats.skills = {}
+      pl.pcStats.skills[skill] = { ...(pl.pcStats.skills[skill] ?? {}), ...patch }
+    })
+    saveToStorage(get().parties)
+  },
+
+  setPartyDetail(partyId, config) {
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      if (!p) return
+      if (config === null) p.pcDetail = undefined
+      else p.pcDetail = config
+    })
+    saveToStorage(get().parties)
+  },
+
+  importCharacter(partyId, parsed) {
+    let result = { matched: false, playerId: '' }
+    set(s => {
+      const p = s.parties.find(p => p.id === partyId)
+      if (!p) return
+      const lower = parsed.name.trim().toLowerCase()
+      // Match an existing PC by name (NPCs keep their linked stat block).
+      const existing = p.players.find(pl => pl.memberType !== 'npc' && pl.name.trim().toLowerCase() === lower)
+      if (existing) {
+        existing.name = parsed.name        // adopt the export's exact casing
+        existing.memberType = 'pc'
+        existing.pcStats = parsed.pcStats
+        existing.pcSheet = parsed.sheet
+        result = { matched: true, playerId: existing.id }
+      } else {
+        const id = nplid()
+        p.players.push({
+          id, name: parsed.name, notes: '', memberType: 'pc',
+          pcStats: parsed.pcStats, pcSheet: parsed.sheet,
+        })
+        result = { matched: false, playerId: id }
+      }
+    })
+    saveToStorage(get().parties)
+    // If this PC is already in the tracker, refresh its HP bar from the import.
+    if (typeof parsed.pcStats?.maxHP === 'number') useCombatStore.getState().setPcMaxHP(parsed.name, parsed.pcStats.maxHP)
+    return result
+  },
+
+  syncCampaignParty(campaignId, campaignName, members) {
+    let partyId = ''
+    set(s => {
+      let p = s.parties.find(pp => pp.campaignId === campaignId)
+      if (!p) {
+        p = { id: npid(), name: campaignName, level: 1, players: [], isFavorite: false, campaignId }
+        s.parties.push(p)
+      } else {
+        p.name = campaignName
+      }
+      partyId = p.id
+      /*
+       * TWO DEVICES, ONE CAMPAIGN, TWO PARTIES.
+       *
+       * Each device minted its own id for this campaign's party (npid() above), so when the GM mirror
+       * meets `pf2e-parties` for the first time and unions the two copies BY ID, both survive with the
+       * same campaignId. Everything that resolves a campaign to its party takes the first match —
+       * `partyId` in the seam, and the find above — so the other device's NPCs, per-player notes and
+       * turn history sat in storage where nothing could reach them.
+       *
+       * Fold them into the one we keep rather than dropping them: a player already here (by charId, or
+       * by name for hand-added NPCs) wins, everyone else comes across. This runs on every open, so a
+       * device heals itself the next time the GM opens the campaign.
+       */
+      const party = p
+      const dupes = s.parties.filter(pp => pp.campaignId === campaignId && pp.id !== party.id)
+      for (const d of dupes) {
+        for (const pl of d.players) {
+          const lower = pl.name.trim().toLowerCase()
+          const here = party.players.find(x =>
+            pl.charId !== undefined && x.charId !== undefined
+              ? x.charId === pl.charId
+              : x.memberType === pl.memberType && x.name.trim().toLowerCase() === lower)
+          if (!here) party.players.push(pl)
+        }
+      }
+      if (dupes.length) s.parties = s.parties.filter(pp => pp.campaignId !== campaignId || pp.id === party.id)
+      const wantedIds = new Set(members.map(m => m.charId))
+      // Prune PCs whose character left the campaign — matched by stable charId, NOT name. Keep any NPCs
+      // the GM added by hand, and (back-compat) any PC player that predates charId tracking, so a first
+      // sync after upgrading doesn't discard its accumulated turn history.
+      p.players = p.players.filter(pl => pl.memberType === 'npc' || pl.charId === undefined || wantedIds.has(pl.charId))
+      for (const m of members) {
+        // Match on the stable character id so a RENAMED PC keeps its turn history and two PCs that share
+        // a name stay distinct. Fall back once to a name match to adopt a pre-charId player, then stamp
+        // the id onto it.
+        const lower = m.name.trim().toLowerCase()
+        let pl = p.players.find(x => x.memberType !== 'npc' && x.charId === m.charId)
+        if (!pl) pl = p.players.find(x => x.memberType !== 'npc' && x.charId === undefined && x.name.trim().toLowerCase() === lower)
+        if (!pl) {
+          pl = { id: nplid(), name: m.name, notes: '', memberType: 'pc', charId: m.charId }
+          p.players.push(pl)
+        } else {
+          pl.charId = m.charId
+          pl.name = m.name // adopt the current name in place (handles a rename)
+        }
+        if (typeof m.maxHP === 'number') pl.pcStats = { ...(pl.pcStats ?? {}), maxHP: m.maxHP }
+      }
+      s.activePartyId = partyId
+    })
+    saveToStorage(get().parties)
+    return partyId
+  },
+
+  reloadFromStorage() {
+    const parties = loadFromStorage()
+    set(s => {
+      s.parties = parties
+      if (s.activePartyId && !parties.some(p => p.id === s.activePartyId)) s.activePartyId = null
+    })
+  },
+})))

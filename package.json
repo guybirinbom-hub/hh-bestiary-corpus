@@ -7,5 +7,15 @@
     "fetch": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/fetch-aon.mjs",
     "build": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/build.mjs"
   },
-  "engines": { "node": ">=22.21" }
+  "engines": {
+    "node": ">=22.21"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "immer": "11.1.11",
+    "jsdom": "29.1.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "5.0.14"
+  }
 }
