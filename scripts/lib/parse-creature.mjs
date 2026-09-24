@@ -31,7 +31,7 @@ export function parseCreaturePage(doc) {
   const unparsed = [];
   const bad = (section, heading, line, reason) => unparsed.push({ section, heading, line: String(line).slice(0, 300), reason });
   const md = String(doc.markdown ?? '').replace(/\r\n?/g, '\n');
-  const abilityNames = new Set((Array.isArray(doc.creature_ability) ? doc.creature_ability : []).map((n) => String(n).toLowerCase().trim()).filter(Boolean));
+  const abilityNames = new Set((Array.isArray(doc.creature_ability) ? doc.creature_ability : []).map((n) => String(n).toLowerCase().replace(/\s+/g, ' ').trim()).filter(Boolean));
 
   let cut = md.search(/<title level="2"[^>]*right="Creature\s+-?\d+"[^>]*>/i);
   if (cut < 0) cut = md.search(/<title level="2"[^>]*>/i);
@@ -136,7 +136,37 @@ export function parseCreaturePage(doc) {
       // "cold iron 15, Resistances fire 15". A capitalised row label inside a defence row starts that row.
       // A second HP row opens a part's own stat line ("**HP** 30 (head), deceptive regrowth; **Immunities** area
       // damage; **Weakness** cold iron 10"): all of it describes the part, so it stays on that pool.
+      // An HP row runs to the end of its paragraph; a later paragraph that opens with an ability header
+      // ("**HP** 20⏎⏎[Buck](/MonsterAbilities…) <actions…/> DC 17") is that ability, not part of the pool.
+      if (e.kind === 'hp') {
+        const paras = paragraphs(e);
+        const keep = [paras[0] ?? ''];
+        for (const p of paras.slice(1)) {
+          const h = inferHeader(p, doc.name);
+          if (h && /^(?:\[|[A-Z])/.test(p) && !/^\(/.test(p)) {
+            // one header per line: "[Attack of Opportunity](…) <actions…/><br />[Shield Block](…) <actions…/>"
+            let cur = null;
+            const flush = () => { if (cur) { headings.push({ section, label: cur.name, kind: 'ability' }); handleEntry(cur, section); } };
+            for (const l of p.split('\n')) {
+              const lh = inferHeader(l, doc.name);
+              if (lh || !cur) { flush(); const hh = lh ?? h; cur = { section, kind: 'ability', name: hh.name, rawLabel: hh.name, first: lh ? lh.rest : h.rest, lines: [], unbolded: true }; }
+              else cur.lines.push(l);
+            }
+            flush();
+          } else keep.push(p);
+        }
+        text = keep.join(' ').replace(/\n/g, ' ');
+      }
       if (e.kind === 'hp' && hpTexts.length) { hpTexts.push(text); return; }
+      // An AC row that ran on into an unbolded IWR row ("**Will** +13⏎⏎Immunities cold").
+      if (e.kind === 'ac') {
+        const m = text.match(/(?:^|\s)(Immunities|Resistances|Weaknesses)\s+(?=[\[a-z0-9_])/);
+        if (m) {
+          const rest = text.slice(m.index + m[0].length);
+          text = text.slice(0, m.index);
+          handleEntry({ section, kind: m[1].toLowerCase(), name: m[1], rawLabel: m[1], first: rest, lines: [] }, section);
+        }
+      }
       if (STAT_ROW_KINDS.has(e.kind)) {
         const re = /\s*[;,]?\s*(?:\*\*(Immunities|Resistances|Weaknesses|Hardness|HP)\*\*|\b(Immunities|Resistances|Weaknesses)\b(?=\s)|\b(HP)\b(?=\s*(?:\(|\d)))/g;
         const cuts = [...text.matchAll(re)].filter((m) => m.index > 0);
@@ -211,9 +241,14 @@ export function parseCreaturePage(doc) {
           else bad(section, e.name, s, 'hardness without a number');
           break;
         }
-        case 'immunities': fields.immunities = mergeList(fields.immunities, splitList(text.replace(/\.$/, ''), unk)); break;
-        case 'resistances': fields.resistances = mergeRW(fields.resistances, parseResWeak(text, unk)); break;
-        case 'weaknesses': fields.weaknesses = mergeRW(fields.weaknesses, parseResWeak(text, unk)); break;
+        case 'immunities': case 'resistances': case 'weaknesses': {
+          // The same row printed twice (inline in the HP row and again as its own row): both are merged,
+          // and the repeat is reported so the page's duplication is visible.
+          if (fields[e.kind]?.length) bad(section, e.name, text, "IWR row printed twice; the record merges both");
+          if (e.kind === 'immunities') fields.immunities = mergeList(fields.immunities, splitList(text.replace(/\.$/, ''), unk));
+          else fields[e.kind] = mergeRW(fields[e.kind], parseResWeak(text, unk));
+          break;
+        }
         case 'speed': {
           const r = parseSpeed(text, unk);
           fields.speed = r.speed;
@@ -263,13 +298,15 @@ export function parseCreaturePage(doc) {
   function classify(name, cur, lab) {
     const n = name.replace(/\s+/g, ' ').trim();
     if (cur && CLAUSE_RE.test(n)) return 'continue';
+    // "**<sup>S</sup> Signature spell <sup>E</sup> emotion spell**": the spell list's legend, not an entry
+    if (/^\s*<sup>/i.test(lab?.rawLabel ?? '')) { bad(cur?.section ?? '', n, lab.rawLabel, 'spell legend line with no field'); return 'absorbed'; }
     // Numbered or dice-result sub-labels ("**1**", "**7 or 11**") belong to the ability they list.
     if (cur?.kind === 'ability' && /^\d/.test(n)) return 'continue';
     // A degree of success whose bold ran on into the next word ("**Success Kundal** inflicts…").
     if (cur?.kind === 'ability' && /^(?:Critical Success|Critical Failure|Success|Failure)\s/.test(n) && !abilityNames.has(n.toLowerCase())) return 'continue';
     // An option label inside an ability ("**Ally** …", "**Enemy** …" under Angry Rant): printed on the
     // next line of the same paragraph, with no cost, and not one of the page's own ability names.
-    if (cur?.kind === 'ability' && !lab.afterBlank && abilityNames.size && !/MonsterAbilities\.aspx/i.test(lab.url ?? '') && !facetMentions(n)
+    if (cur?.kind === 'ability' && !lab.afterBlank && !lab.traitHeader && abilityNames.size && !/MonsterAbilities\.aspx/i.test(lab.url ?? '') && !facetMentions(n)
       && !/^\s*<actions\b/i.test(lab.rest ?? '') && !STAT_LABEL.test(n) && !SPELL_HEADER.test(n) && !RITUAL_HEADER.test(n)) return 'continue';
     if (cur?.kind === 'strike' && /^Damage$/i.test(n)) return 'continue';
     if (cur?.kind === 'spells' && /^(?:Cantrips?(?:\s*\(\d+\w*\))?|Constant\s*\(\d+\w*\)|\d+(?:st|nd|rd|th)(?:\s+rank)?)$/i.test(n)) return 'continue';

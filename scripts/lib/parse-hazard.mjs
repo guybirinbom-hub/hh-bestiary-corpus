@@ -100,7 +100,16 @@ export function parseHazardPage(doc) {
           for (const p of rest) description.push(clean(p, unk));
           break;
         }
-        case 'disable': disable = paras.map((p) => clean(p, unk)).filter(Boolean).join('\n') || undefined; break;
+        case 'disable': {
+          // "…disables the hazard.<br />**Belimarius Statue AC** 42; … **Hardness** 31; **HP** 120 (BT 60)": a
+          // component's own defences printed inside the Disable text stay there; the shape has no field.
+          for (const line of text.split('\n')) {
+            if (!/\*\*(?:[A-Z][\w'’-]*\s+)+(?:AC|Hardness|HP)\*\*/.test(line)) continue;
+            for (const m of line.matchAll(/\*\*((?:[A-Z][\w'’-]*\s+)*(?:AC|Hardness|HP|Immunities|Resistances|Weaknesses|Fort|Ref|Will))\*\*[^*]*/g)) bad(section, m[1], clean1(m[0], unk), 'component defences inside Disable with no field');
+          }
+          disable = paras.map((p) => clean(p, unk)).filter(Boolean).join('\n') || undefined;
+          break;
+        }
         case 'ac': {
           const r = parseAcRow(`${e.name === 'AC' ? '' : `**${e.name}**`} ${text}`.trim(), unk);
           for (const k of ['ac', 'acNote', 'fort', 'ref', 'will', 'saveNote']) if (r[k] !== undefined) fields[k] = r[k];
@@ -137,9 +146,13 @@ export function parseHazardPage(doc) {
           hp.push(name ? { hp: num(m[1]), name } : { hp: num(m[1]) });
           break;
         }
-        case 'immunities': fields.immunities = [...(fields.immunities ?? []), ...splitList(text.replace(/\.$/, ''), unk)]; break;
-        case 'resistances': fields.resistances = [...(fields.resistances ?? []), ...parseResWeak(text, unk)]; break;
-        case 'weaknesses': fields.weaknesses = [...(fields.weaknesses ?? []), ...parseResWeak(text, unk)]; break;
+        case 'immunities': case 'resistances': case 'weaknesses': {
+          // A second IWR row belongs to a component ("**Web Hardness** 5; **Web HP** 20; **Immunities** …"):
+          // the hazard shape has one list, so the component's row is reported, not merged into the hazard's.
+          if (fields[e.kind] !== undefined) { bad(section, e.name, clean1(text, unk), 'component IWR row with no field'); break; }
+          fields[e.kind] = e.kind === 'immunities' ? splitList(text.replace(/\.$/, ''), unk) : parseResWeak(text, unk);
+          break;
+        }
         case 'routine': {
           const t = [paras.map((p) => clean(p, unk)).join('\n'), ...(e.sub ?? [])].filter(Boolean).join('\n');
           routine = routine ? `${routine}\n${t}` : t;
@@ -184,6 +197,8 @@ export function parseHazardPage(doc) {
       return 'absorbed';
     }
     if (cur && CLAUSE_RE.test(n) && !startsAbility) return 'continue';
+    // A dice-table option ("**1–2: Acid Rain** (acid) A torrent…") belongs to the entry that rolls it.
+    if (cur && /^\d+(?:\s*[–-]\s*\d+)?\s*:/.test(n) && !startsAbility) return 'continue';
     // A bold word on the line right under Disable/Stealth/Reset is part of its value ("**Thievery** DC 28").
     if (['disable', 'stealth', 'reset'].includes(cur?.kind) && !lab.afterBlank && !startsAbility) return 'continue';
     if (cur?.kind === 'strike' && /^Damage$/i.test(n)) return 'continue';

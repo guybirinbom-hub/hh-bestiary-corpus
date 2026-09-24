@@ -190,6 +190,13 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     // An unbolded header starts a paragraph, or follows an ability on its own line (after a <br>); it
     // never interrupts a stat row's value ("**Items**⏎[spiritual rope](…)").
     if (!lab && (wasBlank || !cur || cur.kind === 'ability')) lab = readUnboldedHeader(line, abilityNames, wasBlank || !cur);
+    // An unbolded header the facet does not name, on its own line after an ability, with a lowercase trait
+    // list and then a range or a sentence: "Glimpse of Stolen Flesh (aura, divine, …, visual) 30 feet. When…".
+    if (!lab && cur?.kind === 'ability' && section !== 'top') {
+      const th = stripLinks(line).match(TRAIT_HEADER);
+      // (an affliction inside an action, "Caustic Nightmare Vapor (acid, poison) … **Saving Throw** DC 38", stays)
+      if (th && !/^(?:The|A|An|This|It|Its|If|When|On|In|Melee|Ranged)$/.test(th[1].split(' ')[0]) && line.startsWith(th[1]) && !/Saving Throw/i.test(line)) lab = { name: th[1], rawLabel: th[1], rest: line.slice(th[1].length).trim(), unbolded: true, traitHeader: true };
+    }
     if (lab) {
       lab.afterBlank = wasBlank;
       // A bold run that begins lowercase is a word of the sentence around it ("…uses an auditory⏎**action**").
@@ -212,6 +219,8 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
   }
   return entries;
 }
+
+const TRAIT_HEADER = /^([A-Z][A-Za-z'’\-]*(?:\s+(?:[A-Z][A-Za-z'’\-]*|of|the|a|an|and|or|to|in|on|from|with|for|by)){0,5})\s+\((?:[a-z][a-z-]*(?:\s[a-z-]+)?)(?:,\s*[a-z][a-z-]*(?:\s[a-z-]+)?)*\)\s+(?=\d+\s*(?:feet|foot)\b|[A-Z])/;
 
 /**
  * A bold run that covers a whole sentence ("**Terrain Advantage Non-lizardfolk creatures … scout.**"):

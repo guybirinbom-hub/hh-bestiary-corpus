@@ -17,7 +17,7 @@ import { JSDOM } from 'jsdom'
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { pageHeadings } from './lib/page-headings.mjs'
+import { pageHeadings, printsUnboldedHeader } from './lib/page-headings.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -196,7 +196,7 @@ function rawValue(raw, h, hazard, { extra = false } = {}) {
     }
   }
   switch (h.label) {
-    case 'Recall Knowledge': return /Recall Knowledge/.test(raw.flavor ?? '') ? (raw.flavor.match(/Recall Knowledge[^\n]*/)?.[0] ?? null) : null
+    case 'Recall Knowledge': return /Recall Knowledge\b[^\n]*\bDC\s*\d/.test(raw.flavor ?? '') ? (raw.flavor.match(/Recall Knowledge[^\n]*/)?.[0] ?? null) : null
     case 'Perception': return raw.perception ?? null
     case 'Languages': return nonEmpty(raw.languages?.languages) || nonEmpty(raw.languages?.abilities) ? raw.languages : null
     case 'Skills': return nonEmpty(raw.skills) ? raw.skills : null
@@ -211,7 +211,7 @@ function rawValue(raw, h, hazard, { extra = false } = {}) {
     case 'Immunities': return nonEmpty(d.immunities) ? d.immunities : null
     case 'Resistances': return nonEmpty(d.resistances) ? d.resistances : null
     case 'Weaknesses': return nonEmpty(d.weaknesses) ? d.weaknesses : null
-    case 'Speed': return nonEmpty(raw.speed) ? raw.speed : null
+    case 'Speed': return nonEmpty(raw.speed) ? raw.speed : raw.speedNote ? { speedNote: raw.speedNote } : null
     case 'Rituals': return raw.rituals ?? null
     case 'Complexity': return hazard ? raw.complex : null
     case 'Stealth': return hazard && (raw.stealth?.dc != null || (raw.stealth?.bonus != null && inBlob('Stealth'))) ? raw.stealth : (inBlob('Stealth') ? { inDescription: 'Stealth' } : null)
@@ -283,6 +283,15 @@ function lis(seq) {
   for (let i = best; i >= 0; i = prev[i]) keep.add(i)
   return keep
 }
+
+// A later HP pool that carries a part's own stat row ("**HP** 36 (head), …; **Immunities** area damage",
+// a second form's "AC 42; Fort +32…"): the record keeps that row on the pool it describes.
+function partPool(rec, label) {
+  const re = { Weaknesses: /\bWeakness(es)?\b/, Resistances: /\bResistances?\b/, Immunities: /\bImmunit(y|ies)\b/ }[label] ?? new RegExp(`\\b${label}\\b`)
+  return (rec.defenses?.hp ?? []).slice(1).find(p => re.test(p.name ?? '')) ?? null
+}
+const partNote = (label, part) => `adapter: the page's second ${label} row belongs to a part; the record keeps it on that HP pool ("${part.name}"), and parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])`
+const stats = { optionLines: 0, unboldedHeaders: 0, explainedByUnparsed: 0 }
 
 function compare(rec, file, hazard) {
   const id = rec._aon?.id ?? `${file}#${rec.name}`
@@ -359,8 +368,10 @@ function compare(rec, file, hazard) {
       // the page prints this stat again (a second HP pool, a second form's AC, "Web Hardness" after
       // "Door Hardness"); the record has one slot for it, except HP, which keeps every pool
       const pools = m.label === 'HP' ? (rec.defenses?.hp ?? []) : []
+      const part = partPool(rec, m.label)
       if (pools.length > m.occ) row(m.label, 'adapter', `${m.label} #${m.occ + 1}`, null, pools[m.occ],
         'adapter: parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])')
+      else if (part) row(m.label, 'adapter', `${m.label} #${m.occ + 1}`, null, part, partNote(m.label, part))
       else row(m.label, 'parse', `${m.label} #${m.occ + 1}`, null, null, `the page prints ${m.label} ${m.occ + 1} times; the record holds one`)
       continue
     }
@@ -371,7 +382,15 @@ function compare(rec, file, hazard) {
       const prev = exp.slice(0, i).reverse().find(p => rawValue(rec, p, hazard) != null)
       const prevRaw = prev && rawValue(rec, prev, hazard)
       const prevBody = prev?.kind === 'ability' ? flatText([prevRaw.trigger, prevRaw.entries]) : ''
-      if (m.kind === 'ability' && new RegExp(`(^|[\\s.;])${m.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(prevBody)) {
+      const esc = m.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const part = m.kind === 'stat' && partPool(rec, m.label)
+      if (m.kind === 'ability' && new RegExp(`(^|\\n|[.!?:]\\s+)${esc}(?=[\\s.:;,]|$)`, 'i').test(prevBody)) {
+        // the page's bold option label ("**Ally** …" under Angry Rant, "… again. **Air** tailwind, …" under
+        // All Made One) opens a line or a sentence of the ability that lists it
+        stats.optionLines++
+      } else if (part) {
+        row(m.label, 'adapter', m.label, null, part, partNote(m.label, part))
+      } else if (m.kind === 'ability' && new RegExp(`(^|[\\s.;])${esc}\\b`).test(prevBody)) {
         row(m.label, 'merged', m.label, null, prevRaw, `the record folds it into "${prev.label}"`)
       } else {
         row(m.label, 'parse', m.label, null, null, 'the record does not carry it')
@@ -394,6 +413,8 @@ function compare(rec, file, hazard) {
       row(x.label, 'render', null, x.label, rec.defenses?.savingThrows?.[x.label.toLowerCase()] ?? null, renderNote(c, x, true))
     } else if (x.label === 'Description' && hazard) {
       row(x.label, 'adapter', null, x.label, cut(raw), 'adapter: parseHazard falls back to the whole description text when it parses no flavor paragraph')
+    } else if (raw != null && raw !== false && x.kind === 'ability' && printsUnboldedHeader(rec._aon?.markdown, cleanAbilityName(x.label), { hazard, name: rec.name })) {
+      stats.unboldedHeaders++                    // the page prints it at the start of a line without bold
     } else if (raw != null && raw !== false) {
       const k = norm(x.label)
       const where = page.asides.some(a => norm(a) === k) ? 'the page prints it in a sidebar (<aside>), not the stat block; the record made it an entry'
@@ -489,6 +510,28 @@ for (const { rec, file, hazard } of todo) {
 }
 console.error = origError
 
+// A parse or merged row the record parser already reported as page content with no home: say so in the
+// note, so every surviving row either names its unparsed row or stands as a parser defect.
+const UNPARSED = join(ROOT, 'report', 'unparsed.json')
+if (existsSync(UNPARSED)) {
+  const byId = new Map()
+  for (const u of JSON.parse(readFileSync(UNPARSED, 'utf8')).rows) {
+    if (!byId.has(u.id)) byId.set(u.id, [])
+    byId.get(u.id).push(u)
+  }
+  for (const r of allRows) {
+    if (r.verdict !== 'parse' && r.verdict !== 'merged') continue
+    const h = norm(String(r.expected ?? r.heading).replace(/ #\d+$/, ''))
+    const bare = h.replace(/^(melee|ranged) /, '')
+    const u = (byId.get(r.id) ?? []).find(u => !u.used && (() => {
+      const uh = norm(u.heading), ul = norm(u.line)
+      return (uh && (uh === h || uh === bare || uh.endsWith(' ' + h))) || (bare.length > 2 && ul.includes(bare))
+    })())
+    if (u) u.used = true
+    if (u) { r.note = `${r.note}; page oddity, reported in report/unparsed.json: "${u.reason}"`; r.unparsed = u.reason; stats.explainedByUnparsed++ }
+  }
+}
+
 const byVerdict = {}
 for (const r of allRows) byVerdict[r.verdict] = (byVerdict[r.verdict] ?? 0) + 1
 const topHeadings = {}
@@ -503,6 +546,10 @@ for (const v of Object.keys(byVerdict).sort()) {
 const summary = {
   records: todo.length, clean, withRows: todo.length - clean, rows: allRows.length,
   byVerdict: Object.fromEntries(Object.entries(byVerdict).sort()), topHeadings,
+  // page headings matched without a row: a bold option label kept as a line of the ability that lists it,
+  // and a record ability the page prints unbolded at the start of a line (the oracle cannot list those)
+  matchedWithoutRow: { optionLines: stats.optionLines, unboldedHeaders: stats.unboldedHeaders },
+  parseOrMergedExplainedByUnparsed: stats.explainedByUnparsed,
   data: DATA.startsWith(ROOT) ? DATA.slice(ROOT.length + 1) : DATA,
   vendor: readFileSync(join(ROOT, 'vendor', 'PIN.md'), 'utf8').match(/Source: Heroes-Heaven `([0-9a-f]+)`/)?.[1] ?? null,
   scope: 'StatBlock only: name, level, source and rarity line are rendered by CombatantDetail and are not compared; trait pills are compared as a set; BT and ritual DC labels are values, not headings.',
