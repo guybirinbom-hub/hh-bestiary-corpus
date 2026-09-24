@@ -474,8 +474,10 @@ function parseSpellBlock(e, unk, report) {
   const name = e.name.replace(/,?\s*\(?\s*\d+\s+Focus\s+Points?\s*\)?\s*[,;]?\s*$/i, '').replace(/[,;]\s*$/, '').trim();
   const low = name.toLowerCase();
   const tradition = ['arcane', 'divine', 'occult', 'primal'].find((t) => low.includes(t)) ?? '';
-  const type = /innate/.test(low) ? 'Innate' : /prepared/.test(low) ? 'Prepared' : /spontaneous/.test(low) ? 'Spontaneous'
-    : /focus|composition|domain|devotion|hex|order|revelation|school|conflux|warden|monk|ki/.test(low) ? 'Focus'
+  // "Spells Known" is a spontaneous caster's list. A block that prints a focus pool ("Sorcerer Bloodline
+  // Spells DC 35, 3 Focus Points") is Focus whatever its name: StatBlock draws the pool only for that type.
+  let type = /innate/.test(low) ? 'Innate' : /prepared/.test(low) ? 'Prepared' : /spontaneous|spells known/.test(low) ? 'Spontaneous'
+    : /focus|composition|domain|devotion|hex|order|revelation|school|conflux|warden|monk|ki|bloodline|conduit/.test(low) ? 'Focus'
     : /cantrips/.test(low) ? 'Cantrips' : 'Innate';
   const all = [e.first, ...e.lines].join('\n');
   let ranks = [...all.matchAll(RANK_RE)];
@@ -493,7 +495,7 @@ function parseSpellBlock(e, unk, report) {
   const atm = hflat.match(ATTACK_RE);
   if (atm) block.attack = num((atm[1] ?? atm[2] ?? atm[3]).replace(/\s+/g, ''));
   const fpm = (lflat + ' ' + hflat).match(/(\d+)\s*Focus\s*Points?/i);
-  if (fpm) block.focusPoints = num(fpm[1]);
+  if (fpm) { block.focusPoints = num(fpm[1]); block.type = type = 'Focus'; }
   const leftover = clean1(hflat.replace(ATTACK_RE, (m) => (m.match(/^DC\s*\d+/i) ? '' : '')).replace(/\bDC\s*\d+/i, '').replace(/\(?\s*\d+\s*Focus\s*Points?\s*\)?/i, ''), unk)
     .replace(/^[\s,;.]+|[\s,;.]+$/g, '');
   if (leftover) report(leftover, 'spell header text with no field');

@@ -90815,7 +90815,7 @@
    "json": {
     "name": "Sorcerer Bloodline Spells",
     "tradition": "",
-    "type": "Innate",
+    "type": "Focus",
     "DC": 33,
     "focusPoints": 2,
     "entry": {
