@@ -8,7 +8,7 @@
 import { clean, clean1, decodeEntities, num, ordSuffix, splitList, splitTopLevel, stripLinks } from './text.mjs';
 import {
   CLAUSE_RE, flat, paragraphs, parseAbility, parseAcRow, parseResWeak, parseSpeed, parseStrike,
-  preprocess, sidebarText, toEntries,
+  preprocess, sidebarText, splitRunOn, toEntries,
 } from './grammar.mjs';
 
 const SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'];
@@ -59,6 +59,8 @@ export function parseCreaturePage(doc) {
     body = body.replace(trBlock[0], '\n');
   }
 
+  // Who the page's sentences are about ("A leopard seal…", "A moon hag…"): the name, then the traits.
+  const subject = [fields.name ?? doc.name, ...(fields.traits ?? [])];
   const { lines, sidebars } = preprocess(body, bad, 'body');
   // ── sections ───────────────────────────────────────────────────────────────────────────────────
   const sections = [[]];
@@ -77,7 +79,7 @@ export function parseCreaturePage(doc) {
 
   for (let si = 0; si < 3; si++) {
     const section = SECTION_NAMES[si];
-    const entries = toEntries(sections[si], section, classify, bad, abilityNames);
+    const entries = toEntries(sections[si], section, classify, bad, abilityNames, { subject });
     for (const e of entries) {
       headings.push({ section, label: e.name, kind: e.kind });
       handleEntry(e, section);
@@ -125,8 +127,10 @@ export function parseCreaturePage(doc) {
           // Otherwise it is the next ability, printed without its bold.
           const h = inferHeader(p, doc.name);
           if (h) {
-            headings.push({ section, label: h.name, kind: 'ability' });
-            handleEntry({ section, kind: 'ability', name: h.name, rawLabel: h.name, first: h.rest, lines: [], unbolded: true }, section);
+            for (const x of splitRunOn({ section, kind: 'ability', name: h.name, rawLabel: h.name, first: h.rest, lines: [], unbolded: true }, abilityNames, subject)) {
+              headings.push({ section, label: x.name, kind: 'ability' });
+              handleEntry(x, section);
+            }
             continue;
           }
           bad(section, e.name, p, 'paragraph after a stat row');
@@ -322,7 +326,7 @@ export function parseCreaturePage(doc) {
     // An option label inside an ability ("**Ally** …", "**Enemy** …" under Angry Rant): printed on the
     // next line of the same paragraph, with no cost, and not one of the page's own ability names. An
     // affliction ("**Putrid Plague** (disease) … **Saving Throw** …") is an entry even when the facet omits it.
-    if (cur?.kind === 'ability' && !lab.afterBlank && !lab.traitHeader && abilityNames.size && !/MonsterAbilities\.aspx/i.test(lab.url ?? '') && !facetMentions(n)
+    if (cur?.kind === 'ability' && !lab.afterBlank && !lab.traitHeader && !lab.forced && abilityNames.size && !/MonsterAbilities\.aspx/i.test(lab.url ?? '') && !facetMentions(n)
       && !/^\s*<actions\b/i.test(lab.rest ?? '') && !(/^\s*\((?:\[|[a-z])/.test(lab.rest ?? '') && /\*\*Saving Throw\*\*/i.test(lab.rest ?? '')) && !STAT_LABEL.test(n) && !SPELL_HEADER.test(n) && !RITUAL_HEADER.test(n)) return 'continue';
     if (cur?.kind === 'strike' && /^Damage$/i.test(n)) return 'continue';
     if (cur?.kind === 'spells' && /^(?:Cantrips?(?:\s*\(\d+\w*\))?|Constant\s*\(\d+\w*\)|\d+(?:st|nd|rd|th)(?:\s+rank)?)$/i.test(n)) return 'continue';

@@ -98,8 +98,10 @@ function abilityNamesReason(row, { T, doc }) {
   for (const y of onlyT) {
     if (explainedT.has(y)) continue;
     const yl = nk(y);
-    // printed as a header: at a line start, or glued after a list with its trait list ("disease Impossible Stature (aura…")
-    const printed = lines.some((l) => { const t = normKey(l).replace(/^•\s*/, ''); return (t.startsWith(yl) && /^(?:$|[\s(.:;,!◆◇↺])/.test(t.slice(yl.length))) || new RegExp(`\\s${esc(yl)}\\s*\\([a-z]`).test(t); });
+    // printed as a header: at a line start, glued after a list with its trait list ("disease Impossible
+    // Stature (aura…"), or run on after a full stop with its cost or a sentence ("…body. Tidal Wave <actions…/>")
+    const printed = lines.some((l) => { const t = normKey(l).replace(/^•\s*/, ''); return (t.startsWith(yl) && /^(?:$|[\s(.:;,!◆◇↺])/.test(t.slice(yl.length))) || new RegExp(`\\s${esc(yl)}\\s*\\([a-z]`).test(t)
+      || new RegExp(`[.!?]\\s+${esc(yl)}\\s*(?:[(\\[;◆◇↺]|(?:the|a|an)\\s)`).test(t); });
     reasons.add(printed ? 'facet-omits-ability' : 'unexplained');
   }
   return join(reasons);

@@ -46,7 +46,12 @@ line-by-line fold:
      `Spells`, `Focus Spells`, `… Rituals`, `Rituals`), `Signature Spells`; anything else is a bot ability.
    - An ability header may be unbolded Title Case only when the line is immediately followed by an
      `<actions>` tag or a `(trait)` list, and the name is in the document's `creature_ability` facet.
-     Otherwise the line is prose of the previous entry.
+     After a line break or a list inside another ability, an unbolded header is also read when it is a
+     MonsterAbilities link, Title Case words before a cost tag or trait list (a stray `**` allowed), a
+     facet name, or Title Case words before a sentence about the creature ("Whisker Sense A leopard seal
+     can…"); after a full stop inside a line, Title Case words before a cost tag or such a sentence start
+     a header too ("…rolls initiative. Violent Deluge <actions…/>"). Otherwise the line is prose of the
+     previous entry.
    - `<aside>…</aside>` blocks are lifted out first and appended to `flavor` as sidebars; `<table>`
      blocks are converted to pipe tables and attached to the entry they sit in.
 4. An ability entry: `name`, `activity` (from the first `<actions string>` tag; a second tag on the header

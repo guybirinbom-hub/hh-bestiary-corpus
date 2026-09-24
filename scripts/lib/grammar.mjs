@@ -52,6 +52,13 @@ export function preprocess(md, bad, section = '') {
   // A line that starts with a comma was hard-wrapped mid-list: stitch it back.
   const out = [];
   for (const l of lines) {
+    // A trait list broken by a <br> ("Scintillating Aura (arcane, aura, evocation, incapacitation,⏎**visual)**
+    // 30 feet."): the closing item is stitched back, its stray bold dropped.
+    const tail = l.match(/^(?:\*\*)?([a-z][a-z -]*\))(?:\*\*)?(.*)$/);
+    if (tail && out.length && /\([^()]*,\s*$/.test(out[out.length - 1])) {
+      out[out.length - 1] = `${out[out.length - 1].trimEnd()} ${tail[1]}${tail[2]}`;
+      continue;
+    }
     if (/^,/.test(l) && out.length) {
       let k = out.length - 1;
       while (k > 0 && out[k] === '') k--;
@@ -158,7 +165,7 @@ export function readUnboldedHeader(line, abilityNames, paragraphStart) {
  * continues the current entry, or a kind string for a new entry. Lines before the first entry go
  * to `bad` as stray lines. A blank line is kept as '' so paragraph breaks survive.
  */
-export function toEntries(lines, section, classify, bad, abilityNames) {
+export function toEntries(lines, section, classify, bad, abilityNames, { subject = '' } = {}) {
   const entries = [];
   let cur = null;
   let prevBlank = true;
@@ -173,7 +180,9 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     }
     lines = out;
   }
-  for (let line of lines) {
+  const queue = [...lines];
+  while (queue.length) {
+    let line = queue.shift();
     if (line === '') { if (cur) cur.lines.push(''); prevBlank = true; continue; }
     const wasBlank = prevBlank;
     prevBlank = false;
@@ -206,7 +215,23 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     if (!lab && cur?.kind === 'ability' && section !== 'top') {
       const th = stripLinks(line).match(TRAIT_HEADER);
       // (an affliction inside an action, "Caustic Nightmare Vapor (acid, poison) … **Saving Throw** DC 38", stays)
-      if (th && !/^(?:The|A|An|This|It|Its|If|When|On|In|Melee|Ranged)$/.test(th[1].split(' ')[0]) && line.startsWith(th[1]) && !/Saving Throw/i.test(line)) lab = { name: th[1], rawLabel: th[1], rest: line.slice(th[1].length).trim(), unbolded: true, traitHeader: true };
+      if (th && !/^(?:The|A|An|This|It|Its|If|When|On|In|Melee|Ranged)$/.test(th[1].split(' ')[0]) && line.startsWith(th[1]) && !/\*\*Saving Throw\*\*|Saving Throw:? DC/i.test(line)) lab = { name: th[1], rawLabel: th[1], rest: line.slice(th[1].length).trim(), unbolded: true, traitHeader: true };
+    }
+    // A header the page printed without bold after a line break inside another ability, or after its
+    // bullets ("…attack.<br />[Reactive Strike](…) <actions…/>", "</ul>Quickened Casting <actions…/>",
+    // "<br />Whisker Sense A leopard seal can…"): see readBreakHeader for the shapes.
+    if (!lab && cur?.kind === 'ability') {
+      const h = readBreakHeader(line, abilityNames, subject);
+      if (h && h.name.toLowerCase() !== String(cur.name).toLowerCase()) lab = h;
+    }
+    // A header run on inside a paragraph after a full stop ("…per trigger. Reactive Strike [reaction] beak
+    // only", "…rolls initiative. Violent Deluge <actions…/> **Trigger**…"): the line is cut there.
+    if (lab ? !STAT_NAME.test(lab.name) : cur?.kind === 'ability') {
+      const at = midLineHeader(lab ? lab.rest ?? '' : line, abilityNames, subject);
+      if (at > 0) {
+        if (lab) { queue.unshift(lab.rest.slice(at)); lab.rest = lab.rest.slice(0, at).trim(); }
+        else { queue.unshift(line.slice(at)); line = line.slice(0, at).trim(); }
+      }
     }
     if (lab) {
       lab.afterBlank = wasBlank;
@@ -229,6 +254,132 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
     while (e.lines.length && e.lines[e.lines.length - 1] === '') e.lines.pop();
   }
   return entries;
+}
+
+const COST_TOKEN = /\[(?:one-action|two-actions|three-actions|reaction|free-action)\]/;
+const HEAD_WORD = "[A-Z][\\w'’\\-!]*";
+const HEAD_RUN = `${HEAD_WORD}(?:\\s+(?:of|the|a|an|and|or|to|in|on|from|with|for|by|${HEAD_WORD})){0,6}`;
+const NOT_A_NAME = /^(?:The|A|An|This|These|It|Its|If|When|Whenever|While|On|In|Each|Every|Any|Once|As|Melee|Ranged|Damage|Stage|Success|Failure|Trigger|Effect|Requirements?|Frequency|Special|Cost|Saving|Onset|Maximum|Duration|Range|Area|Targets?|Heightened|See|Note|Or|And|But|Then|For|At|After|Before|Until|With|Without|Only|Also|Otherwise|Instead|However|Its|Their|They|He|She|You|Your|Unlike|Like)$/;
+const STAT_NAME = /^(?:Source|Perception|Languages?|Skills|Str|Dex|Con|Int|Wis|Cha|Items|AC|Fort|Fortitude|Ref|Reflex|Will|HP|Hardness|Immunit(?:ies|y)|Resistances?|Weakness(?:es)?|Speed|Melee|Ranged|Stealth|Disable|Complexity|Reset|Routine)$|(?:Hardness|HP)$/i;
+const PLAIN_SENTENCE = /^(?:A|An|The|When|Whenever|If|While|Each|Any|This|These|Its|It|They|Their|Once)\s/;
+
+/**
+ * An ability header printed without bold at the start of a line inside another ability (after a `<br>` or a
+ * list), measured on pages that print the header in bold elsewhere:
+ *   - a MonsterAbilities link with nothing, a cost tag or a trait list after it ("[Troop Defenses](…)",
+ *     "[Engulf](…)<actions…/> DC 27"), or any link followed by a cost tag;
+ *   - Title Case words followed by a cost tag, with or without a stray closing bold ("Shield Block**
+ *     <actions…/>", "Attack of Opportunity <actions…/> ghostly hoof only", "Of Three Minds** <actions…/>");
+ *   - one of the page's own ability names (the creature_ability facet) followed by the body;
+ *   - Title Case words followed by a sentence about the creature ("Whisker Sense A leopard seal can…",
+ *     "Doctor's Hand When the surgeon rolls…"), which is a header only when the sentence names the
+ *     creature (its name's last word) or starts with When/If/While.
+ * A clause label, a degree of success, a bullet or a line starting in lowercase is never one.
+ */
+export function readBreakHeader(line, abilityNames, subject = '') {
+  const lk = line.match(/^\[([^\]]+)\]\(((?:[^()\s]|\([^()]*\))*)\)\s*(?:\*\*\s*)?/);
+  if (lk) {
+    const rest = line.slice(lk[0].length);
+    const name = clean1(lk[1]);
+    if (!/^[A-Z]/.test(name) || CLAUSE_RE.test(name)) return null;
+    if ((/MonsterAbilities\.aspx/i.test(lk[2]) && /^(?:$|<actions\b|\(|\[(?:one-action|two-actions|three-actions|reaction|free-action)\])/.test(rest))
+      || /^<actions\b/.test(rest) || (abilityNames.has(name.toLowerCase()) && /^(?:$|<actions\b|\()/.test(rest))) {
+      return { name, rawLabel: lk[1], rest: rest.trim(), url: lk[2], unbolded: true, forced: true };
+    }
+    return null;
+  }
+  if (!/^[A-Z]/.test(line)) return null;
+  const m = line.match(new RegExp(`^(${HEAD_RUN})\\s*(?:\\*\\*\\s*)?(?=<actions\\b|${COST_TOKEN.source})`));
+  if (m && okName(m[1])) return { name: m[1].trim(), rawLabel: m[1].trim(), rest: line.slice(m[0].length).trim(), unbolded: true, forced: true };
+  const f = readUnboldedHeader(line, abilityNames, true);
+  if (f) return { ...f, forced: true };
+  const p = line.match(new RegExp(`^(${HEAD_RUN})\\s+(?=[A-Z])`));
+  if (p && okName(p[1]) && p[1].split(/\s+/).length <= 4) {
+    // shrink the run until what follows is a sentence ("Whisker Sense A leopard…")
+    const words = p[1].split(/\s+/);
+    for (let k = words.length; k >= 1; k--) {
+      const name = words.slice(0, k).join(' ');
+      const after = line.slice(name.length).trim();
+      if (!okName(name) || !PLAIN_SENTENCE.test(after)) continue;
+      if (!/^(?:When|Whenever|If|While)\s/.test(after) && !namesSubject(after, subject)) continue;
+      return { name, rawLabel: name, rest: after, unbolded: true, forced: true };
+    }
+  }
+  return null;
+}
+
+/**
+ * The first sentence names the creature: "A leopard seal can…" for "Leopard Seal", "A moon hag…" for
+ * "Bittersweet Sister" (trait Hag). `subject` is the creature's name followed by its traits.
+ */
+function namesSubject(sentence, subject) {
+  const words = new Set(String(Array.isArray(subject) ? subject.join(' ') : subject).replace(/\(.*?\)/g, ' ').toLowerCase().split(/[\s,]+/)
+    .map((w) => w.replace(/['’]s$|s$/, '')).filter((w) => w.length >= 3 && !/^(?:the|and|of)$/.test(w)));
+  if (!words.size) return false;
+  const head = sentence.split(/[.;,]/)[0].toLowerCase().split(/\s+/).slice(1, 6).map((w) => w.replace(/['’]s$|s$/, ''));
+  return head.some((w) => words.has(w));
+}
+
+/**
+ * An ability entry built from a paragraph (not by toEntries) -> the entry, then one entry per header the
+ * paragraph runs on into: after a line break (see readBreakHeader) or after a full stop (see
+ * midLineHeader). A remainder that does not read as a header stays where it is.
+ */
+export function splitRunOn(e, abilityNames, subject) {
+  const lines = [...String(e.first).split('\n'), ...e.lines];
+  const out = [{ ...e, first: '', lines: [] }];
+  let cur = out[0];
+  let firstLine = true;
+  const add = (l) => { if (firstLine) { cur.first = l; firstLine = false; } else cur.lines.push(l); };
+  const queue = [...lines];
+  let head = true;
+  while (queue.length) {
+    let l = queue.shift();
+    const h = !head && l !== '' ? readBreakHeader(l, abilityNames, subject) : null;
+    head = false;
+    if (h && h.name.toLowerCase() !== String(cur.name).toLowerCase()) {
+      cur = { section: e.section, kind: 'ability', name: h.name, rawLabel: h.rawLabel, first: '', lines: [], unbolded: true };
+      out.push(cur);
+      firstLine = true;
+      l = h.rest;
+    }
+    const at = midLineHeader(l, abilityNames, subject);
+    if (at > 0) { queue.unshift(l.slice(at)); l = l.slice(0, at).trim(); }
+    add(l);
+  }
+  return out;
+}
+
+function okName(name) {
+  const words = name.trim().split(/\s+/);
+  if (NOT_A_NAME.test(words[0]) || CLAUSE_RE.test(name.trim()) || /^Critical (?:Success|Failure)\b/.test(name)) return false;
+  if (/^(?:Immunities|Resistances|Weaknesses|Speed|HP|AC|Hardness|Fort|Ref|Will|Perception|Languages|Skills|Items)$/.test(words[0])) return false;
+  return !/^(?:of|the|a|an|and|or|to|in|on|from|with|for|by)$/.test(words[words.length - 1]);
+}
+
+/**
+ * Where a header starts inside a line, after a full stop: Title Case words followed by a cost tag
+ * ("…rolls initiative. Violent Deluge <actions…/>", "…per trigger. Reactive Strike [reaction]"), or by a
+ * sentence about the creature ("…remain frightened. Reactive Beak The eron of Jandelay gains…").
+ * Returns the index, or -1.
+ */
+export function midLineHeader(line, abilityNames, subject = '') {
+  const re = new RegExp(`([.!?])\\s+(${HEAD_RUN})\\s*(?:\\*\\*\\s*)?(?=<actions\\b|${COST_TOKEN.source}|(?:The|A|An)\\s)`, 'g');
+  for (const m of line.matchAll(re)) {
+    const name = m[2].trim();
+    const at = m.index + m[0].indexOf(m[2], m[1].length);
+    const after = line.slice(at + name.length).replace(/^\s*(?:\*\*\s*)?/, '');
+    if (!okName(name)) continue;
+    // a cost tag, or a two-word-plus name before a sentence naming the creature
+    if (/^(?:<actions\b|\[)/.test(after)) {
+      // "…a Strike. Attack of Opportunity <actions…/>" inside a sentence would need a Title Case run of 2+
+      // words; a single word ("Strike <actions") is prose
+      if (name.split(/\s+/).length < 2 && !abilityNames.has(name.toLowerCase())) continue;
+      return at;
+    }
+    if (name.split(/\s+/).length >= 2 && namesSubject(after, subject)) return at;
+  }
+  return -1;
 }
 
 const TRAIT_OK = (t) => /^(?:range(?: increment)?|reach) \d+ feet$/i.test(t) || /^[A-Za-z][A-Za-z0-9 '’-]*$/.test(t) && t.split(/\s+/).length <= 3 && !/\b(?:see|only|and|within|targets?)\b/i.test(t)

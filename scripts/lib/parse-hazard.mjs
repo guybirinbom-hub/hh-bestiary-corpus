@@ -66,7 +66,7 @@ export function parseHazardPage(doc) {
 
   sections.forEach((secLines, si) => {
     const section = `s${si + 1}`;
-    const entries = toEntries(secLines, section, classify, bad, abilityNames);
+    const entries = toEntries(secLines, section, classify, bad, abilityNames, { subject: [fields.name ?? doc.name, ...(fields.traits ?? [])] });
     for (const e of entries) {
       headings.push({ section, label: e.name, kind: e.kind });
       handle(e, section);
