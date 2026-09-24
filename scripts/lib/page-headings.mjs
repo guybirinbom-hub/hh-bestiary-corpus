@@ -81,7 +81,8 @@ export function plainLabel(s) {
  * occult)", "Otherworldly Touch A zoog's claw Strike can…", "Trample Large or smaller, hoof, DC 26").
  */
 export function headerName(label) {
-  let n = label.replace(COST_TOKEN, '').trim()
+  // "Mythic Power 3 Mythic Points": a pool size printed inside the bold is a value
+  let n = label.replace(COST_TOKEN, '').replace(/\s+\d+\s+[A-Z][A-Za-z ]*Points?$/, '').trim()
   // A name is cut only where the label visibly ran on: a trait list, a DC or damage roll, a clause label,
   // or a whole sentence ending in a full stop ("But Will It Lose Me Votes" and "Mythic Power 3 Mythic
   // Points" are names).

@@ -18,7 +18,7 @@ const PROF = /^(untrained|trained|expert|master|legendary)$/i;
 
 export function parseHazardPage(doc) {
   const unparsed = [];
-  const bad = (section, heading, line, reason) => unparsed.push({ section, heading, line: String(line).slice(0, 300), reason });
+  const bad = (section, heading, line, reason) => unparsed.push({ section, heading, line: String(line).slice(0, 1000), reason });
   let md = String(doc.markdown ?? '').replace(/\r\n?/g, '\n');
   const fields = {};
   const tm = md.match(/<title level="1"[^>]*?right="Hazard\s+(-?\d+)"[^>]*>([\s\S]*?)<\/title>/i);
@@ -40,6 +40,29 @@ export function parseHazardPage(doc) {
   const description = [];
   let disable, routine, reset;
   const hp = [];
+  let lastHardnessComp = '';
+
+  // Every strike the page prints, wherever it sits (its own entry, or after a <br> inside an action or the
+  // Routine): the hazard shape has no strike field, so each is an unparsed row carrying the strike and the
+  // rules text printed with it; description[0] keeps it for the app's own hazard text parser.
+  sections.forEach((secLines, si) => {
+    for (let i = 0; i < secLines.length; i++) {
+      // at a line start, or glued after the sentence before it ("…as a single attack. **Ranged** darts +12")
+      const at = secLines[i].search(/(?:^|(?<=[.!?)]\s*))(?:\*\*(?:Melee|Ranged)\*\*|(?:Melee|Ranged)(?=\s*<actions\b))/);
+      if (at < 0 || (at > 0 && !/\*\*(?:Melee|Ranged)\*\*/.test(secLines[i].slice(at, at + 12)))) continue;
+      const m = secLines[i].slice(at).match(/^(?:\*\*(Melee|Ranged)\*\*|(Melee|Ranged))/);
+      const parts = [secLines[i].slice(at)];
+      for (let j = i + 1; j < secLines.length; j++) {
+        const l = secLines[j];
+        if (!l || /^-{3,}$/.test(l)) break;
+        const lab = l.match(/^\*\*\[?([^*\]]+)/);
+        if (lab && !/^(?:Damage|Critical Success|Success|Failure|Critical Failure|Effect)\b/i.test(lab[1].trim())) break;
+        if (!lab && /^[A-Z][\w'’ -]{1,40}\s*(?:<actions\b|\()/.test(l)) break;
+        parts.push(l);
+      }
+      bad(`s${si + 1}`, m[1] ?? m[2], clean1(parts.join(' ')), 'hazard strike: no field in hazard shape; kept in description[0] which the app parses');
+    }
+  });
 
   sections.forEach((secLines, si) => {
     const section = `s${si + 1}`;
@@ -123,6 +146,7 @@ export function parseHazardPage(doc) {
           // "**Spout Hardness** 8; Spout HP 32 (BT 16)": the HP row lost its bold.
           const hpm = m[2].match(/^\s*[;,]\s*((?:[A-Z][\w'’-]*\s+)*HP)\s+(\d.*)$/);
           if (hpm) { m[2] = ''; later.push({ section, kind: 'hp', name: hpm[1], rawLabel: hpm[1], first: hpm[2], lines: [] }); }
+          lastHardnessComp = e.name.replace(/\s*Hardness$/i, '').trim();
           if (fields.hardness === undefined) fields.hardness = num(m[1]);
           else bad(section, e.name, s, 'second hardness with no field');
           if (m[2].replace(/[,;.\s]/g, '')) bad(section, e.name, s, 'hardness note with no field');
@@ -133,17 +157,18 @@ export function parseHazardPage(doc) {
           const m = s.match(/^(?:(\([^)]*\))\s*)?(\d+)\s*(.*)$/);
           if (!m) { bad(section, e.name, s, 'HP without a number'); break; }
           let note = [m[1], m[3]].filter(Boolean).join(' ');
-          m[1] = m[2];
-          const bt = note.match(/\(?\s*BT\s*(\d+)\s*\)?/i);
-          if (bt) {
-            if (fields.bt === undefined) fields.bt = num(bt[1]);
-            note = note.replace(bt[0], '');
-          }
+          const value = num(m[2]);
+          // The Broken Threshold: "(BT 32)", or a bare "(44)" right after the HP, smaller than it ("Hammer HP 88 (44)").
+          let btv;
+          const bt = note.match(/\(?\s*BT\s*(\d+)\s*\)?/i) ?? (m[3].match(/^\(\s*(\d+)\s*\)/) && num(m[3].match(/^\(\s*(\d+)\s*\)/)[1]) < value ? m[3].match(/^\(\s*(\d+)\s*\)/) : null);
+          if (bt) { btv = num(bt[1]); note = note.replace(bt[0], ''); }
+          // Only the first (or only) pool's BT is the hazard's; a later component's BT stays on its pool.
+          if (btv !== undefined && !hp.length && fields.bt === undefined) fields.bt = btv;
           note = note.replace(/^[\s,;]+|[\s,;]+$/g, '').replace(/^\(\s*\)$/, '');
-          const comp = e.name.replace(/\s*HP\b.*$/i, '').trim();
+          // A bare "HP" row under a component's hardness ("**Blade Hardness** 30, **HP** 30 each") is that component's.
+          const comp = e.name.replace(/\s*HP\b.*$/i, '').trim() || (!hp.length ? lastHardnessComp : '');
           const qual = (e.name.match(/HP\s*(\(.*\))/i) ?? [])[1];
-          const name = [comp, qual, note].filter(Boolean).join(' ').trim();
-          hp.push(name ? { hp: num(m[1]), name } : { hp: num(m[1]) });
+          hp.push({ hp: value, head: [comp, qual].filter(Boolean).join(' ').trim(), note, bt: btv });
           break;
         }
         case 'immunities': case 'resistances': case 'weaknesses': {
@@ -160,9 +185,9 @@ export function parseHazardPage(doc) {
         }
         case 'reset': reset = paras.map((p) => clean(p, unk)).filter(Boolean).join('\n') || undefined; break;
         case 'strike': {
+          // (reported once, with its rules text, by the strike scan above)
           const r = parseStrike(e.name === 'Ranged' ? 'Ranged' : 'Melee', { first: paras.join('\n'), lines: [] }, unk);
-          if (r.error) bad(section, e.name, r.raw, r.error);
-          else attacks.push(r.attack);
+          if (!r.error) attacks.push(r.attack);
           break;
         }
         case 'speed': {
@@ -181,7 +206,13 @@ export function parseHazardPage(doc) {
       }
       for (const x of later) handle(x, section);
   }
-  if (hp.length) fields.hp = hp;
+  // One pool per component, named by it; with several components each carries its own BT in its name
+  // ("Joint (BT 32)"), since defenses.bt holds only the first pool's.
+  if (hp.length) fields.hp = hp.map((p) => {
+    const head = p.head + (p.head && hp.length > 1 && p.bt !== undefined ? ` (BT ${p.bt})` : '');
+    const name = [head, p.note].filter(Boolean).join(', ');
+    return name ? { hp: p.hp, name } : { hp: p.hp };
+  });
   return {
     fields, attacks, actions,
     description: description.filter(Boolean),

@@ -112,6 +112,9 @@ export function readLabel(line) {
     // A cost token printed inside the bold: "Call Glaive or [three-actions]", "Cloak in Embers [reaction".
     const tk = name.match(/\s+((?:or\s+)?\[(?:one-action|two-actions|three-actions|reaction|free-action)\]?(?:\s+or\s+\[[a-z-]+\]?)*)$/i);
     if (tk) { lead = tk[1].replace(/^or\s+/i, '').replace(/\[([a-z-]+)$/i, '[$1]') + ' '; name = name.slice(0, tk.index).replace(/\s+or$/i, '').trim(); }
+    // A count printed inside the bold: "Mythic Power 3 Mythic Points".
+    const cnt = name.match(/^(.*?[A-Za-z])\s+(\d+\s+[A-Z][A-Za-z ]*Points?)$/);
+    if (cnt) { lead += cnt[2] + ' '; name = cnt[1].trim(); }
     // A trait list printed inside the bold: "Wall Blend (concentrate)".
     const tp = name.match(/^(.*?[A-Za-z])\s*(\([a-z][^()]*\))$/);
     if (tp) { lead += tp[2] + ' '; name = tp[1].trim(); }
@@ -141,10 +144,10 @@ export function readUnboldedHeader(line, abilityNames, paragraphStart) {
     for (const name of abilityNames) {
       if (line.length <= name.length + 2) continue;
       if (line.slice(0, name.length).toLowerCase() !== name) continue;
-      if (!/^\s+[A-Z]/.test(line.slice(name.length))) continue;
+      if (!/^(?:\*\*)?\s+[A-Z]/.test(line.slice(name.length))) continue;   // "Outside of Time** The …": a lost opening bold
       if (!/^[A-Z]/.test(line)) continue;
       const nm = line.slice(0, name.length);
-      return { name: nm, rawLabel: nm, rest: line.slice(name.length).trim(), unbolded: true };
+      return { name: nm, rawLabel: nm, rest: line.slice(name.length).replace(/^\*\*/, '').trim(), unbolded: true };
     }
   }
   return null;
@@ -228,6 +231,8 @@ export function toEntries(lines, section, classify, bad, abilityNames) {
   return entries;
 }
 
+const TRAIT_OK = (t) => /^(?:range(?: increment)?|reach) \d+ feet$/i.test(t) || /^[A-Za-z][A-Za-z0-9 '’-]*$/.test(t) && t.split(/\s+/).length <= 3 && !/\b(?:see|only|and|within|targets?)\b/i.test(t)
+  && !/\d+\s*(?:minutes?|rounds?|hours?|days?)\b/i.test(t) && (!/\d+\s*feet\b/i.test(t) || /^(?:range(?: increment)?|reach) \d+ feet$/i.test(t));
 const TRAIT_HEADER = /^([A-Z][A-Za-z'’\-]*(?:\s+(?:[A-Z][A-Za-z'’\-]*|of|the|a|an|and|or|to|in|on|from|with|for|by)){0,5})\s+\((?:[a-z][a-z-]*(?:\s[a-z-]+)?)(?:,\s*[a-z][a-z-]*(?:\s[a-z-]+)?)*\)\s+(?=\d+\s*(?:feet|foot)\b|[A-Z])/;
 
 /**
@@ -429,7 +434,17 @@ export function parseAbility(e, unk, issues) {
     let spill = '';
     const labRe = new RegExp(`\\s(${CLAUSE_LABELS.join('|')})\\s`, '');
     items = items.map((t) => { const k = t.match(labRe); if (k && !spill) { spill = t.slice(k.index).trim(); return t.slice(0, k.index).trim(); } return t; }).filter(Boolean);
-    const looksLikeTraits = items.length && items.every((t) => t.length <= 40 && /^[A-Za-z]/.test(t) && !/[.:;]/.test(t));
+    // A trait list by shape: every item a short word run, no "see"/"only"/"and", no duration or distance
+    // (except the weapon traits "reach N feet" / "range increment N feet"). A trait whose link text ran on
+    // into the next words ("[mental 90 feet](…), DC 40", "[primal Bolan targets a held item](…)",
+    // "[linguistic [free-action]](…)") keeps its first word; the rest goes back to the body.
+    let bodyLead = '';
+    const k = items.findIndex((t) => !TRAIT_OK(t));
+    if (k >= 0) {
+      const m = items[k].match(/^([a-z][a-z-]*)\s+((?:\d|\[|DC\b|[A-Z]).*)$/);
+      if (m && TRAIT_OK(m[1]) && items.slice(0, k).every(TRAIT_OK)) { bodyLead = [m[2], ...items.slice(k + 1)].join(', '); items = [...items.slice(0, k), m[1]]; }
+    }
+    const looksLikeTraits = items.length && items.every(TRAIT_OK);
     if (looksLikeTraits) {
       traits = items;
       // Cut the same parenthesis off the raw text (links and all).
@@ -440,9 +455,17 @@ export function parseAbility(e, unk, issues) {
         if (ch === '(') depth++;
         else if (ch === ')') { depth--; if (depth === 0) break; }
       }
-      first = (spill ? ` **${spill.split(' ')[0]}** ${spill.split(' ').slice(1).join(' ')}` : '') + first.slice(j + 1);
+      first = (bodyLead ? ` ${bodyLead}` : '') + (spill ? ` **${spill.split(' ')[0]}** ${spill.split(' ').slice(1).join(' ')}` : '') + first.slice(j + 1);
+      // a cost token that was inside the trait link ("[linguistic [free-action]](…)") is the activity
+      if (!activity) {
+        const TOK = { 'one-action': 'Single Action', 'two-actions': 'Two Actions', 'three-actions': 'Three Actions', reaction: 'Reaction', 'free-action': 'Free Action' };
+        const t2 = first.match(/^\s*\[(one-action|two-actions|three-actions|reaction|free-action)\]\s*/i);
+        if (t2) { activity = actionStringToActivity(TOK[t2[1].toLowerCase()]); first = first.slice(t2[0].length); }
+      }
     }
   }
+  // "(1 minute) A giant silverfish consumes…": an activity measured in time units has no field; it stays text
+  if (!activity && /^\s*\(\s*\d+\s*(?:minutes?|rounds?|hours?|days?)\s*\)/i.test(stripLinks(first))) issues.push({ line: `${e.name} ${stripLinks(first).trim().slice(0, 120)}`, reason: 'activity in time units, no field' });
   const paras = [first, ...e.lines];
   let text = paras.join('\n').replace(/\n{2,}/g, '\n').trim();
   // Tables were carried as one line; restore them as blocks.
@@ -453,9 +476,13 @@ export function parseAbility(e, unk, issues) {
   // Unbolded clause labels after a semicolon ("…once per round; Requirements The natbakh's…") get their own line.
   body = body.replace(/;\s+(Requirements?|Trigger|Effect|Frequency)\s+(?=[A-Z])/g, '\n$1 ');
   body = body.split('\n').map((l) => l.replace(/;\s*$/, '').trim()).join('\n').replace(/^\n+/, '').replace(/^[;,:]\s*/, '');
+  // An empty list item leaves a bare bullet line.
+  body = body.split('\n').filter((l) => !/^•\s*$/.test(l)).join('\n');
   let trigger;
   const trg = body.match(/(^|\n)Trigger ([^\n]*)/);
-  if (trg) {
+  // A Trigger inside a listed option ("• Reroll ◇ … Trigger Xanderghul fails a check") is the option's own.
+  const firstBullet = body.search(/(^|\n)•/);
+  if (trg && !(firstBullet >= 0 && firstBullet < trg.index)) {
     let t = trg[2];
     let spilled = '';
     // "Trigger … Strike Effect The skaveling…": the Effect label lost its bold, so the trigger ends there.

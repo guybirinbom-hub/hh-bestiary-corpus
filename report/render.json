@@ -3,9 +3,9 @@
   "records": 5454,
   "clean": 1,
   "withRows": 5453,
-  "rows": 11372,
+  "rows": 11370,
   "byVerdict": {
-   "adapter": 4958,
+   "adapter": 4956,
    "order": 5734,
    "parse": 26,
    "render": 654
@@ -18,7 +18,7 @@
     },
     {
      "heading": "Languages",
-     "rows": 1049
+     "rows": 1047
     },
     {
      "heading": "Hardness",
@@ -161,8 +161,8 @@
    ]
   },
   "matchedWithoutRow": {
-   "optionLines": 72,
-   "unboldedHeaders": 45
+   "optionLines": 80,
+   "unboldedHeaders": 46
   },
   "parseOrMergedExplainedByUnparsed": 26,
   "data": "data",
@@ -32143,23 +32143,6 @@
    ],
    "verdict": "adapter",
    "note": "adapter: parseCreature flattens abilities.top/mid/bot into one list (parseCreature.ts L178), so StatBlock renders them all under Abilities & Actions"
-  },
-  {
-   "id": "creature-1894",
-   "name": "Silent Stalker",
-   "heading": "Languages",
-   "expected": "Languages",
-   "rendered": "Languages",
-   "json": {
-    "languages": [
-     "any one spoken in life by their murderer (typically Common"
-    ],
-    "abilities": [
-     "can't speak)"
-    ]
-   },
-   "verdict": "adapter",
-   "note": "adapter: languages.abilities dropped (can't speak)); parseCreature keeps only languages.languages (parseCreature.ts L281)"
   },
   {
    "id": "creature-1894",
@@ -111980,23 +111963,6 @@
   {
    "id": "creature-3745",
    "name": "Masque Mannequin",
-   "heading": "Languages",
-   "expected": "Languages",
-   "rendered": "Languages",
-   "json": {
-    "languages": [
-     "one spoken in life (typically Common"
-    ],
-    "abilities": [
-     "can't speak any language)"
-    ]
-   },
-   "verdict": "adapter",
-   "note": "adapter: languages.abilities dropped (can't speak any language)); parseCreature keeps only languages.languages (parseCreature.ts L281)"
-  },
-  {
-   "id": "creature-3745",
-   "name": "Masque Mannequin",
    "heading": "Speed",
    "expected": "after HP, Immunities, Resistances, Weaknesses",
    "rendered": "before HP, Immunities, Resistances, Weaknesses",
@@ -148663,7 +148629,8 @@
    "rendered": "after Will",
    "json": [
     {
-     "hp": 100
+     "hp": 100,
+     "name": "Runelord Statue (BT 50)"
     },
     {
      "hp": 120

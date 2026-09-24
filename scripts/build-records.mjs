@@ -43,6 +43,7 @@ const bump = (o, k) => { o[k] = (o[k] ?? 0) + 1; };
 const shards = new Map();
 const indexIn = [];
 let creaturesWithMarkdown = 0;
+let placeholderFlavor = 0;        // creatures whose flavor was only the Archives' "No description" note, or held it
 for (const doc of creatures) {
   if (!String(doc.markdown ?? '').trim()) { unparsedRows.push({ id: doc.id, name: doc.name, section: '', heading: '', line: '', reason: 'document has no markdown' }); continue; }
   creaturesWithMarkdown++;
@@ -53,6 +54,7 @@ for (const doc of creatures) {
   for (const f of cmp.onlyStructured) bump(onlyStructured, f);
   for (const f of cmp.onlyText) bump(onlyText, f);
   for (const u of T.unparsed) unparsedRows.push({ id: doc.id, name: doc.name, ...u });
+  if (T.placeholderFlavor) placeholderFlavor++;
   const rec = creatureRecord(doc, S, T);
   const { key } = fileKey(doc);
   if (!shards.has(key)) shards.set(key, []);
@@ -111,6 +113,8 @@ const coverage = {
   byCategory: Object.fromEntries(['creature', 'hazard'].map((c) => [c, { live: live[c], corpus: corpus[c], match: live[c] === corpus[c] }])),
   files: files.length,
   orphanShards,
+  // the Archives' "Nethys Note: No description has been provided…" placeholder, removed from flavor
+  placeholderFlavor,
   index: {
     rows: index.length,
     creatures: index.filter((r) => !r.isHazard).length,

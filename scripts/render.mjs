@@ -384,7 +384,7 @@ function compare(rec, file, hazard) {
       const prevBody = prev?.kind === 'ability' ? flatText([prevRaw.trigger, prevRaw.entries]) : ''
       const esc = m.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const part = m.kind === 'stat' && partPool(rec, m.label)
-      if (m.kind === 'ability' && new RegExp(`(^|\\n|[.!?:]\\s+)${esc}(?=[\\s.:;,]|$)`, 'i').test(prevBody)) {
+      if (m.kind === 'ability' && new RegExp(`(^|\\n|[.!?:]\\s+)(?:•\\s*)?${esc}(?=[\\s.:;,]|$)`, 'i').test(prevBody)) {
         // the page's bold option label ("**Ally** …" under Angry Rant, "… again. **Air** tailwind, …" under
         // All Made One) opens a line or a sentence of the ability that lists it
         stats.optionLines++

@@ -133,11 +133,16 @@ export function splitList(raw, onUnknown) {
     .filter(Boolean);
 }
 
-/** `<table>…</table>` -> GitHub pipe table (first row is the header). */
+/**
+ * `<table>…</table>` -> GitHub pipe table. The first row is the header only when the page marks it with
+ * `<th>`; a table with no header row gets an empty one, so no data row is promoted.
+ */
 export function tableToPipe(html, onUnknown) {
-  const rows = [...String(html).matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((r) =>
+  const trs = [...String(html).matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+  const rows = trs.map((r) =>
     [...r[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => clean1(c[1], onUnknown).replace(/\|/g, '\\|')));
   if (!rows.length) return '';
+  if (!/<th\b/i.test(trs[0][1])) rows.unshift([]);
   const w = Math.max(...rows.map((r) => r.length));
   const line = (r) => '| ' + Array.from({ length: w }, (_, i) => r[i] ?? '').join(' | ') + ' |';
   return [line(rows[0]), '|' + Array.from({ length: w }, () => '---').join('|') + '|', ...rows.slice(1).map(line)].join('\n');

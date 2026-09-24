@@ -26,7 +26,7 @@
 //   facet-truncated-at-break the facet stopped an entry at a paragraph break inside its name ("area⏎⏎damage 5")
 //   facet-names-legend      the facet indexes a spell list's legend line ("S Signature spell E emotion spell")
 //   facet-spacing           the two differ only in whitespace
-//   facet-split-in-parens   the facet split an item on a comma inside its parentheses
+//   facet-split-in-parens   the facet split an item on a comma or semicolon inside its parentheses
 //   facet-dedups-values     the facet lists each distinct number once; the page prints it per strike/block
 //   facet-typo              the facet's number is the page's number with a digit dropped (1 for 11)
 //   page-variant-strike     the page prints a strike inside an ability (a form or a granted Strike)
@@ -137,7 +137,8 @@ function listReason(row, ctx) {
     if (squash(S.join('')) === squash(Tx.join(''))) return 'facet-spacing';
     const reasons = new Set();
     const glued = onlyS.some((x) => ROW_LABEL.test(x) || Tx.some((y) => new RegExp(`^${esc(y)}\\s+[A-Z]`).test(x)) || /^[^(]*\)$|^[^)]*\($/.test(x));
-    if (onlyT.some((y) => onlyS.length && squash(onlyS.join(', ')) === squash(y))) reasons.add('facet-split-in-parens');
+    const bare = (x) => squash(x).replace(/[,;]/g, '');
+    if (onlyT.some((y) => onlyS.length && bare(onlyS.join('')) === bare(y))) reasons.add('facet-split-in-parens');
     else if (glued) reasons.add('facet-glued-rows');
     else {
       if (onlyS.length) reasons.add('unexplained');

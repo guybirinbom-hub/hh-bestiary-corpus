@@ -41,7 +41,7 @@ export function parseCreaturePage(doc) {
 
   // ── flavour and Recall Knowledge (before the stat-block title) ─────────────────────────────────
   const recall = parseRecall(head);
-  const { text: flavorHead, sidebars: headSidebars } = parseFlavorHead(head, bad);
+  const { text: flavorHead, sidebars: headSidebars, placeholder: placeholderFlavor } = parseFlavorHead(head, bad);
 
   // ── stat block title, traits ───────────────────────────────────────────────────────────────────
   const fields = {};
@@ -100,7 +100,7 @@ export function parseCreaturePage(doc) {
 
   const flavorParts = [flavorHead, ...headSidebars, ...sidebars].filter(Boolean);
   const flavor = flavorParts.length ? flavorParts.join('\n\n') : undefined;
-  return { fields, attacks, spellcasting, rituals, abilities, flavor, recall, headings, unparsed };
+  return { fields, attacks, spellcasting, rituals, abilities, flavor, recall, headings, unparsed, placeholderFlavor };
 
 
   function handleEntry(e, section) {
@@ -193,9 +193,10 @@ export function parseCreaturePage(doc) {
         case 'perception': parsePerception(text, fields, (l) => bad(section, e.name, l, 'perception line not read'), unk); break;
         case 'languages': {
           const s = stripLinks(text);
-          const semi = s.indexOf(';');
-          const langs = semi >= 0 ? s.slice(0, semi) : s;
-          const abil = semi >= 0 ? s.slice(semi + 1) : '';
+          // the first ";" outside parentheses ("one spoken in life (typically Common; can't speak any language)")
+          const parts = splitTopLevel(s, ';', false);
+          const langs = parts[0];
+          const abil = parts.slice(1).join(';');
           fields.languages = splitList(langs, unk);
           fields.languageAbilities = splitTopLevel(abil, ';').flatMap((x) => splitList(x, unk));
           break;
@@ -310,6 +311,8 @@ export function parseCreaturePage(doc) {
   function classify(name, cur, lab) {
     const n = name.replace(/\s+/g, ' ').trim();
     if (cur && CLAUSE_RE.test(n)) return 'continue';
+    // A bulleted bold option ("**• Recharge** <actions…/> … **Cost** 1 Mythic Point") belongs to the ability above.
+    if (cur?.kind === 'ability' && /^\s*•/.test(lab?.rawLabel ?? '')) return 'continue';
     // "**<sup>S</sup> Signature spell <sup>E</sup> emotion spell**": the spell list's legend, not an entry
     if (/^\s*<sup>/i.test(lab?.rawLabel ?? '')) { bad(cur?.section ?? '', n, lab.rawLabel, 'spell legend line with no field'); return 'absorbed'; }
     // Numbered or dice-result sub-labels ("**1**", "**7 or 11**") belong to the ability they list.
@@ -610,12 +613,20 @@ function parseRecall(head) {
 function parseFlavorHead(head, bad) {
   const sidebars = [];
   let h = head.replace(/<aside\b[^>]*>([\s\S]*?)<\/aside>/gi, (_, inner) => { const t = sidebarText(inner, bad); if (t) sidebars.push(t); return '\n'; });
-  h = h.replace(/<title[\s\S]*?<\/title>/gi, '');
+  // The page title (level 1) is the creature's name; a section title ("Campaign Role", "Plot Hooks") stays
+  // as its own plain line so its paragraphs do not run into the section before.
+  h = h.replace(/<title level="1"[\s\S]*?<\/title>/gi, '');
+  h = h.replace(/<title\b[^>]*>([\s\S]*?)<\/title>/gi, (_, t) => { const x = clean1(t); return x ? `\n\n${x}\n\n` : '\n'; });
   h = h.replace(/<column gap="tiny">(?:(?!<column)[\s\S])*?Recall Knowledge[\s\S]*?<\/column>/gi, '');
   h = h.replace(/<\/?(?:column|row|image|document|traits|trait)\b[^>]*>/gi, '\n');
   h = h.replace(/<li\b[^>]*>/gi, '\n• ').replace(/<\/li\s*>|<\/?[uo]l\b[^>]*>/gi, '\n');
   h = h.split('\n').filter((l) => !/^\s*\**\[?(Recall Knowledge|Unspecific Lore|Specific Lore)\b/i.test(l.trim())).join('\n');
   let t = clean(h, (tag, ctx) => bad('flavor', '', ctx, `unknown tag <${tag}>`));
+  // The Archives' "Nethys Note: No description has been provided for this creature." is a placeholder, not
+  // flavor: the sentence goes, and so does a Note left with nothing else to say.
+  let placeholder = false;
+  t = t.replace(/No description (?:has been|is) (?:provided|provied|given) for (?:this|these|them|his)\b[^.,\n]*[.,]?[ \t]*/gi, () => { placeholder = true; return ''; });
+  if (placeholder) t = t.replace(/^[ \t]*Nethys Notes?:?[ \t]*$/gim, '').replace(/(Nethys Notes?:)[ \t]+/gi, '$1 ');
   t = t.replace(/\n{3,}/g, '\n\n').trim();
-  return { text: t || undefined, sidebars };
+  return { text: t || undefined, sidebars, placeholder };
 }
