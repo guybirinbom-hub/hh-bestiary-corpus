@@ -572,10 +572,19 @@ export function parseAbility(e, unk, issues) {
   // Leading "(trait, trait)" — read over link text so a URL's parentheses do not count.
   let traits = [];
   // A trait list the page never closed before the next clause: "(occult **Trigger** The skaveling …".
-  const unclosed = first.match(new RegExp(`^\\s*\\(([^()]*?)\\s*(\\*\\*(?:${CLAUSE_LABELS.join('|')})\\*\\*)`, 'i'));
-  if (unclosed && !/\)/.test(stripLinks(unclosed[1])) && (unclosed[1].match(/\[/g) ?? []).length === (unclosed[1].match(/\]/g) ?? []).length) {
-    traits = splitTopLevel(stripLinks(unclosed[1])).map((t) => clean1(t, unk)).filter(Boolean);
-    first = first.slice(unclosed.index + unclosed[0].length - unclosed[2].length);
+  // Read over link text, so the links' own "(/Traits.aspx?ID=38)" do not count as a close: "([curse](…), …,
+  // [possession](…) **Trigger** … within 100 feet) **Effect**". The ")" the page printed after the trigger
+  // instead has no partner and goes.
+  const unclosed = stripLinks(first).match(new RegExp(`^\\s*\\(([^()]*?)\\s*(\\*\\*(?:${CLAUSE_LABELS.join('|')})\\*\\*)`, 'i'));
+  if (unclosed && (unclosed[1].match(/\[/g) ?? []).length === (unclosed[1].match(/\]/g) ?? []).length) {
+    const items = splitTopLevel(unclosed[1]).map((t) => clean1(t, unk)).filter(Boolean);
+    const at = first.indexOf(unclosed[2]);
+    // (a clause label inside a link's text, "([mental **Requirements** The target …](…))", is the spill below)
+    const pre = at > 0 ? first.slice(0, at) : '';
+    if (items.length && items.every(TRAIT_OK) && at > 0 && (pre.match(/\[/g) ?? []).length === (pre.match(/\]/g) ?? []).length) {
+      traits = items;
+      first = dropUnpairedClose(first.slice(at));
+    }
   }
   const fl = stripLinks(first).replace(/^\s+/, '');
   const tm = traits.length ? null : fl.match(/^\(([^()]*(?:\([^()]*\)[^()]*)*)\)/);
@@ -584,12 +593,28 @@ export function parseAbility(e, unk, issues) {
     // A clause label that slid inside the trait list: "(disease **Saving Throw** DC 22 Fortitude)".
     let spill = '';
     const labRe = new RegExp(`\\s(${CLAUSE_LABELS.join('|')})\\s`, '');
-    items = items.map((t) => { const k = t.match(labRe); if (k && !spill) { spill = t.slice(k.index).trim(); return t.slice(0, k.index).trim(); } return t; }).filter(Boolean);
+    // Items after the one the label slid into belong to the clause: "([attack **Requirement** Initiative
+    // hasn't yet been rolled](…), and the shisagishin is disguised …)".
+    let spillAt = -1;
+    items = items.map((t, i) => {
+      if (spillAt >= 0) { spill += `, ${t}`; return ''; }
+      const k = t.match(labRe);
+      if (k) { spill = t.slice(k.index).trim(); spillAt = i; return t.slice(0, k.index).trim(); }
+      return t;
+    }).filter(Boolean);
     // A trait list by shape: every item a short word run, no "see"/"only"/"and", no duration or distance
     // (except the weapon traits "reach N feet" / "range increment N feet"). A trait whose link text ran on
     // into the next words ("[mental 90 feet](…), DC 40", "[primal Bolan targets a held item](…)",
     // "[linguistic [free-action]](…)") keeps its first word; the rest goes back to the body.
     let bodyLead = '';
+    // "([contact](…) [for plants and fungi] or [inhaled](…), [poison](…))": two traits joined by "or" with a
+    // bracketed qualifier on the first. Both are traits; the qualifier has no field and is reported.
+    items = items.flatMap((t) => {
+      const q = t.match(/^([a-z][a-z-]*)\s+\[([^\]]+)\]\s+or\s+([a-z][a-z-]*)$/);
+      if (!q || !TRAIT_OK(q[1]) || !TRAIT_OK(q[3])) return [t];
+      issues.push({ line: `${e.name} (${t})`, reason: 'trait qualifier with no field' });
+      return [q[1], q[3]];
+    });
     const k = items.findIndex((t) => !TRAIT_OK(t));
     if (k >= 0) {
       const m = items[k].match(/^([a-z][a-z-]*)\s+((?:\d|\[|DC\b|[A-Z]).*)$/);
@@ -651,6 +676,18 @@ export function parseAbility(e, unk, issues) {
   if (trigger) out.trigger = trigger;
   out.entries = [body.replace(/\n{3,}/g, '\n\n')];
   return out;
+}
+
+/** Drop the first ")" with no "(" before it, reading over link URLs ("…within 100 feet) **Effect**"). */
+function dropUnpairedClose(t) {
+  let depth = 0;
+  for (let j = 0; j < t.length; j++) {
+    const ch = t[j];
+    if (ch === ']' && t[j + 1] === '(') { let d = 0, q = j + 1; for (; q < t.length; q++) { if (t[q] === '(') d++; else if (t[q] === ')') { d--; if (d === 0) break; } } j = q; continue; }
+    if (ch === '(') depth++;
+    else if (ch === ')') { if (depth === 0) return t.slice(0, j) + t.slice(j + 1); depth--; }
+  }
+  return t;
 }
 
 /** "25 feet, fly 60 feet; air walk" -> {speed, speedNote} */
