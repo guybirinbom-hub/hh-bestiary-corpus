@@ -5,6 +5,7 @@
   "description": "Verified corpus of every Archives of Nethys creature and hazard stat block, in the Heroes Heaven record shape.",
   "scripts": {
     "fetch": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/fetch-aon.mjs",
+    "records": "node scripts/build-records.mjs",
     "build": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/build.mjs",
     "render": "node scripts/render.mjs",
     "vendor:verify": "node scripts/vendor-sync.mjs --verify"
