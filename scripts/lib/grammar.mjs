@@ -109,7 +109,9 @@ export function readLabel(line) {
   }
   // **[Label](url) suffix** — the suffix is body text (traits, numbers) unless it is more name words.
   const lm = inner.match(/^\s*\[([^\]]+)\]\(((?:[^()\s]|\([^()]*\))*)\)\s*(.*)$/s);
-  if (lm && lm[3] && !/^[A-Za-z][A-Za-z'’\- ]*$/.test(lm[3].trim())) return fin(lm[1], `${lm[3]} ${rest}`, lm[2], unclosed);
+  // (a cost tag right after the bold is the header's, so it goes ahead of the suffix: "**[Constrict](…) 3d6+12
+  // bludgeoning, DC 32** <actions…/>")
+  if (lm && lm[3] && !/^[A-Za-z][A-Za-z'’\- ]*$/.test(lm[3].trim())) return fin(lm[1], costFirst(lm[3], rest), lm[2], unclosed);
   if (lm && !lm[3]) return fin(lm[1], rest, lm[2], unclosed);
   return fin(inner, rest, undefined, unclosed);
 
@@ -412,7 +414,13 @@ function splitLongLabel(lab, abilityNames) {
   if (!cut) return;
   const tail = lab.name.slice(cut).trim();
   lab.name = lab.name.slice(0, cut).trim();
-  lab.rest = `${tail} ${lab.rest ?? ''}`.trim();
+  lab.rest = costFirst(tail, lab.rest ?? '');
+}
+
+/** Text the bold ran on into, then the rest of the line: a cost tag that opens the rest stays first. */
+function costFirst(tail, rest) {
+  const t = String(rest).match(/^\s*(<actions\s+string="[^"]+"\s*\/?>)\s*/i);
+  return (t ? `${t[1]} ${tail} ${rest.slice(t[0].length)}` : `${tail} ${rest}`).trim();
 }
 
 function findInlineHeader(line, abilityNames) {

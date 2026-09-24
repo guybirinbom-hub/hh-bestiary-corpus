@@ -12,11 +12,14 @@
 //           render  the adapter passed it and StatBlock did not show it (or showed one nobody gave it)
 //           merged  two page headings became one
 //           order   present on both sides but out of page order
+//           value   the heading matches, but a value the page prints on it is not on the record: an action
+//                   cost with no activity, a Trigger absent from the record (or a record trigger the page
+//                   entry does not print), a focus pool on a spell block not typed Focus
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadStatBlock, loadRecords, GLYPH_BACK, text } from './lib/render-core.mjs'
-import { pageHeadings, printsUnboldedHeader } from './lib/page-headings.mjs'
+import { pageHeadings, printsUnboldedHeader, TRIGGER } from './lib/page-headings.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -245,6 +248,8 @@ function partPool(rec, label) {
 const partNote = (label, part) => `adapter: the page's second ${label} row belongs to a part; the record keeps it on that HP pool ("${part.name}"), and parseCreature/parseHazard keep only the first HP pool (defenses.hp[0])`
 const stats = { optionLines: 0, unboldedHeaders: 0, explainedByUnparsed: 0 }
 const accepted = []
+// a Trigger clause anywhere in an entry's text, bold or not ("; Trigger The…", "<actions…/> Trigger A…")
+const hasTrigger = t => TRIGGER.test(String(t ?? ''))
 
 function compare(rec, file, hazard) {
   const id = rec._aon?.id ?? `${file}#${rec.name}`
@@ -392,6 +397,25 @@ function compare(rec, file, hazard) {
     } else {
       row(x.label, 'render', null, x.label, raw, renderNote(c, x, true))
     }
+  }
+
+  // value: what the page prints on a heading the record carries, beyond its name (cheap, presence only)
+  const nth = {}
+  for (const e of exp) {
+    if (e.kind !== 'ability' && e.kind !== 'spells') continue
+    // the k-th page heading of a name is the k-th record entry of that name ("Tail Sweep" twice)
+    const k = (nth[e.kind + norm(e.label)] = (nth[e.kind + norm(e.label)] ?? -1) + 1)
+    const same = e.kind === 'spells' ? (rec.spellcasting ?? []).filter(s => norm(s.name) === norm(e.label))
+      : rawAbilities(rec, hazard).filter(a => norm(cleanAbilityName(a.name)) === norm(e.label))
+    const raw = same[k]
+    if (!raw) continue
+    if (e.kind === 'spells') {
+      if (e.focus && raw.type !== 'Focus') row(e.label, 'value', 'type Focus', null, { type: raw.type, focusPoints: raw.focusPoints }, `the page prints a focus pool; the record's type is "${raw.type}", and StatBlock draws the pool only for type focus (StatBlock.tsx L1450)`)
+      continue
+    }
+    if (e.cost && !raw.activity) row(e.label, 'value', 'activity', null, cut(raw), 'the page prints an action cost on the header; the record ability has no activity')
+    if (e.trigger && !raw.trigger) row(e.label, 'value', 'trigger', null, cut(raw), 'the page prints a Trigger in this entry; the record ability has no trigger')
+    else if (!e.trigger && raw.trigger && !hasTrigger(e.text)) row(e.label, 'value', 'no trigger', null, cut(raw), 'the record ability has a trigger its page entry does not print (it belongs to another entry)')
   }
 
   // languages.abilities: a heading-level match can still lose half the row

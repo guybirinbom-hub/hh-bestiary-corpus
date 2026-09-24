@@ -140,7 +140,10 @@ accepted without a row is listed in `report/render.json` under `accepted`. Rende
 headings come from the DOM (`.stat-label` texts, `.stat-bar` titles, `.def-box-label` texts, attack and
 ability names). Every difference is a row `{id, name, heading, expected, rendered, json, verdict}` where
 `verdict` is `parse` (the JSON lacks it), `render` (the JSON has it, the component did not show it),
-`adapter` (the app's parseCreature/parseHazard dropped it before the component), `order` or `merged`.
+`adapter` (the app's parseCreature/parseHazard dropped it before the component), `order`, `merged`, or
+`value`: the heading matches, but the page prints an action cost on it and the record ability has no
+activity, prints a Trigger in its entry and the record has none (or the record has a trigger the page
+entry does not print), or prints a focus pool on a spell block whose type is not Focus.
 Known renderer facts from the contract read: hazard AC is never rendered; the adapter drops
 `languages.abilities` and creature `hardness`; ability top/mid/bot order is flattened; Recall Knowledge is
 computed when absent. These are reported as `render`/`adapter`, never hidden by changing the data.

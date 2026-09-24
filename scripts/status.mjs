@@ -6,7 +6,7 @@
 //   1. coverage: corpus count equals live count per category
 //   2. agreement: every row carries a reason, and none is "unexplained"
 //   3. unparsed: every row carries a reason (the report groups them; a reason is the explanation)
-//   4. render: every parse or merged row carries a note explaining it
+//   4. render: every parse, merged or value row carries a note explaining it
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,8 +30,8 @@ const unRows = unparsed.rows ?? [];
 const unNoReason = unRows.filter(r => !r.reason);
 if (unNoReason.length) red.push(`unparsed: ${unNoReason.length} rows without a reason`);
 const rdRows = render.rows ?? [];
-const rdOpen = rdRows.filter(r => (r.verdict === 'parse' || r.verdict === 'merged') && !r.note);
-if (rdOpen.length) red.push(`render: ${rdOpen.length} parse/merged rows without a note`);
+const rdOpen = rdRows.filter(r => (r.verdict === 'parse' || r.verdict === 'merged' || r.verdict === 'value') && !r.note);
+if (rdOpen.length) red.push(`render: ${rdOpen.length} parse/merged/value rows without a note`);
 
 const count = (rows, key) => { const m = {}; for (const r of rows) m[r[key]] = (m[r[key]] ?? 0) + 1; return Object.entries(m).sort((a, b) => b[1] - a[1]); };
 const table = (pairs) => pairs.map(([k, v]) => `| ${k} | ${v} |`).join('\n');
@@ -76,14 +76,15 @@ ${unRows.length} rows, every one carrying a reason.
 |---|---|
 ${table(count(unRows, 'reason'))}
 
-## Render check (every record through the pinned StatBlock, ${render.vendor})
+## Render check (every record through the pinned StatBlock, ${render.summary.vendor})
 
-${render.summary.records} records rendered, ${render.summary.clean} with no rows, ${render.summary.rows} rows.
+${render.summary.records} records rendered, ${render.summary.clean} with no rows, ${render.summary.rows} rows. Page headings matched without a row: ${render.summary.matchedWithoutRow.optionLines} option lines and ${render.summary.matchedWithoutRow.unboldedHeaders} unbolded headers, each listed in report/render.json under \`accepted\`.
 
 | verdict | rows | meaning |
 |---|---|---|
 | parse | ${render.summary.byVerdict.parse ?? 0} | the record lacks the heading (each row explained in its note) |
 | merged | ${render.summary.byVerdict.merged ?? 0} | two page headings became one (each row explained in its note) |
+| value | ${render.summary.byVerdict.value ?? 0} | the heading matches but a value the page prints on it (action cost, Trigger, focus pool) is not on the record (each row explained in its note) |
 | adapter | ${render.summary.byVerdict.adapter ?? 0} | the app's parseCreature/parseHazard dropped it before the component |
 | render | ${render.summary.byVerdict.render ?? 0} | the component did not show a value the adapter passed |
 | order | ${render.summary.byVerdict.order ?? 0} | present, but not in the page's order |
